@@ -1088,12 +1088,12 @@ const STATE = { START: 0, PLAYING: 1, HIT: 2, GAMEOVER: 3 };
 let state = STATE.START;
 let score = 0, hiScore = 0, lives = 3, distance = 0;
 let scroll = 0;
-let speed  = 8;
+let speed  = 6;
 let hitTimer  = 0;
 let startGrace = 0;
 const HIT_GRACE   = 1.8;
 const START_GRACE = 2.5;
-const BASE_SPEED  = 12;
+const BASE_SPEED  = 6;
 let spawnTimer = 0;
 
 const player = {
@@ -1117,14 +1117,14 @@ addEventListener('keyup', e => { keys[e.code] = false; });
 const eat = c => jp[c] ? (jp[c] = false, true) : false;
 const jumpKey   = () => eat('ArrowUp')    || eat('KeyW') || eat('Space');
 const duckKey   = () => eat('ArrowDown')  || eat('KeyS');
-const leftHeld  = () => keys['ArrowLeft']  || touchDragX < -TOUCH_STEER_PX;
-const rightHeld = () => keys['ArrowRight'] || touchDragX >  TOUCH_STEER_PX;
+const leftHeld  = () => keys['ArrowLeft'];
+const rightHeld = () => keys['ArrowRight'];
 const forkLeft  = () => eat('KeyA');
 const forkRight = () => eat('KeyD');
 const anyKey    = () => Object.values(jp).some(Boolean);
 const clearJP   = () => { for (const k in jp) jp[k] = false; };
 
-let tx = 0, ty = 0, touchStartTime = 0, touchDragX = 0, swipeFired = false;
+let tx = 0, ty = 0, touchStartTime = 0, touchDragX = 0, swipeFired = false, touchStartPlayerX = 0;
 const TOUCH_STEER_PX  = 18;  // px offset before steering kicks in
 const TOUCH_SWIPE_PX  = 40;  // px to immediately trigger a fork/turn swipe
 const TOUCH_SWIPE_MS  = 400; // max ms window for a swipe
@@ -1135,6 +1135,7 @@ addEventListener('touchstart', e => {
   touchStartTime = performance.now();
   touchDragX = 0;
   swipeFired = false;
+  touchStartPlayerX = player.x;
 }, { passive: true });
 
 addEventListener('touchmove', e => {
@@ -1533,13 +1534,20 @@ function tickParts(dt) {
 
 // ─── Physics ──────────────────────────────────────────────────────────────────
 function tickPhysics(dt) {
-  if (leftHeld())  player.xVel -= player.STEER * dt;
-  if (rightHeld()) player.xVel += player.STEER * dt;
-  player.xVel -= player.xVel * player.FRIC * dt;
-  player.x += player.xVel * dt;
-
   // Dynamic wall limit tracks current trail width
   const wallEdge = trailHalfW - 0.15;
+
+  // Touch drag: map finger offset 1:1 to world X — no velocity smoothing
+  if (Math.abs(touchDragX) > TOUCH_STEER_PX && !swipeFired) {
+    const scale = (wallEdge * 2) / (window.innerWidth * 0.55);
+    player.x = Math.max(-wallEdge, Math.min(wallEdge, touchStartPlayerX + touchDragX * scale));
+    player.xVel = 0;
+  } else {
+    if (leftHeld())  player.xVel -= player.STEER * dt;
+    if (rightHeld()) player.xVel += player.STEER * dt;
+    player.xVel -= player.xVel * player.FRIC * dt;
+    player.x += player.xVel * dt;
+  }
   if (player.x > wallEdge) {
     player.x = wallEdge;
     if (player.xVel > 0.5) {
@@ -1632,7 +1640,7 @@ function tickCamera(dt) {
 // ─── Speed ────────────────────────────────────────────────────────────────────
 function tickSpeed(dt) {
   const slp = hillSlope(scroll);
-  const base = BASE_SPEED + distance * 64;
+  const base = BASE_SPEED + distance * 32;
   const target = base - slp * 16;
   speed += (Math.max(3, Math.min(26, target)) - speed) * dt * 1.5;
 }
