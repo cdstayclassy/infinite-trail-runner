@@ -271,7 +271,7 @@ const HILL_AMP   = 1.2;
 // trailHalfW smoothly oscillates so the path narrows to single-track width
 // and widens back to full trail. Canyon walls stay fixed; only the dirt
 // surface scales inward, giving a genuine single-track feel.
-const MIN_TRAIL_HALF = 0.65;   // narrowest (≈1.3 wide — real single track)
+const MIN_TRAIL_HALF = 0.85;   // narrowest (≈1.7 wide — gentler minimum)
 const MAX_TRAIL_HALF = TRAIL_W / 2; // widest (1.8)
 let trailHalfW       = MAX_TRAIL_HALF;
 let targetHalfW      = MAX_TRAIL_HALF;
@@ -356,8 +356,8 @@ function placeSegs(scroll) {
 function tickTrail(dt) {
   trailWidthTimer -= dt;
   if (trailWidthTimer <= 0) {
-    // Bias toward narrow quickly — full narrow bias by 0.01mi
-    const bias = Math.min(1, distance / 0.01);
+    // Bias toward narrow gradually — full narrow bias by 0.5mi
+    const bias = Math.min(1, distance / 0.5);
     const minTarget = MIN_TRAIL_HALF + (MAX_TRAIL_HALF - MIN_TRAIL_HALF) * (1 - bias) * 0.3;
     targetHalfW = minTarget + Math.random() * (MAX_TRAIL_HALF - minTarget);
     trailWidthTimer = 1 + Math.random() * 2; // change every 1–3 seconds
@@ -1544,7 +1544,7 @@ function tickPhysics(dt) {
 
   // Touch drag: while finger is on screen, map offset directly to world X — no dead zone, no smoothing
   if (isTouching) {
-    const scale = (wallEdge * 2) / (window.innerWidth * 0.80);
+    const scale = (wallEdge * 2) / (window.innerWidth * 0.90);
     player.x = Math.max(-wallEdge, Math.min(wallEdge, touchStartPlayerX + touchDragX * scale));
     player.xVel = 0;
   } else {
@@ -1645,7 +1645,7 @@ function tickCamera(dt) {
 // ─── Speed ────────────────────────────────────────────────────────────────────
 function tickSpeed(dt) {
   const slp = hillSlope(scroll);
-  const base = BASE_SPEED + distance * 32;
+  const base = BASE_SPEED + distance * 14;
   const target = base - slp * 16;
   speed += (Math.max(3, Math.min(26, target)) - speed) * dt * 1.5;
 }
