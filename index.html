@@ -1,0 +1,2158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>TRAIL BLAZE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Raleway:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; background: #0a0f0a; overflow: hidden; font-family: 'Raleway', sans-serif; }
+  #container { position: relative; width: 100%; height: 100%; }
+  canvas { display: block; touch-action: none; }
+  #hud { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+  #score-display { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); text-align: center; }
+  #score-val { font-family: 'Bebas Neue', sans-serif; font-size: 42px; color: #ff7820; text-shadow: 0 0 20px rgba(255,120,32,.8); line-height: 1; }
+  #score-label { font-size: 11px; letter-spacing: 3px; color: rgba(255,255,255,.5); text-transform: uppercase; }
+  #distance-display { position: absolute; top: 20px; right: 24px; text-align: right; }
+  #dist-val { font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: #80e880; text-shadow: 0 0 12px rgba(128,232,128,.7); }
+  #dist-label { font-size: 11px; letter-spacing: 2px; color: rgba(255,255,255,.4); }
+  #lives-display { position: absolute; top: 20px; left: 20px; display: flex; gap: 6px; align-items: center; }
+  .heart { font-size: 24px; filter: drop-shadow(0 0 6px rgba(255,80,80,.8)); transition: opacity .3s; }
+  .heart.empty { opacity: .2; filter: none; }
+  #speed-bar-wrap { position: absolute; top: 58px; right: 24px; width: 80px; }
+  #speed-bar-track { height: 5px; background: rgba(255,255,255,.12); border-radius: 3px; overflow: hidden; }
+  #speed-bar-fill { height: 100%; background: linear-gradient(90deg,#40c840,#ff7820,#f04040); border-radius: 3px; width: 0%; transition: width .2s; }
+  #speed-label { font-size: 10px; letter-spacing: 2px; color: rgba(255,255,255,.35); margin-top: 3px; text-align: right; }
+  #hill-indicator { position: absolute; top: 80px; right: 24px; font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 2px; color: rgba(255,255,255,0); transition: color .4s; }
+  #hill-indicator.up { color: #ff8844; }
+  #hill-indicator.dn { color: #44ff88; }
+  #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column; background: rgba(0,0,0,.75); pointer-events: none; opacity: 1; transition: opacity .4s; }
+  #overlay.hidden { opacity: 0; }
+  .ol { font-family: 'Bebas Neue', sans-serif; font-size: 80px; line-height: .9; letter-spacing: 4px; }
+  .ol.trail { color: #ff7820; text-shadow: 0 0 40px rgba(255,120,32,.9); }
+  .ol.blaze { color: #80e880; text-shadow: 0 0 40px rgba(128,232,128,.8); }
+  .ol.goa   { color: #ff4444; text-shadow: 0 0 30px rgba(255,60,60,.9); }
+  .ol.gob   { color: #ff8844; }
+  #overlay-sub { margin-top: 20px; font-size: 13px; letter-spacing: 3px; color: rgba(255,255,255,.5); text-transform: uppercase; }
+  #ctrl, #ctrl-touch { margin-top: 24px; display: grid; grid-template-columns: auto auto; gap: 7px 20px; font-size: 13px; }
+  #ctrl .k, #ctrl-touch .k { color: #ff7820; text-align: right; font-weight: 700; }
+  #ctrl .d, #ctrl-touch .d { color: rgba(255,255,255,.65); }
+  #start-prompt { margin-top: 32px; font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 4px; color: #fff; animation: blink 1s step-end infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+  #go-stats { display: none; text-align: center; margin-top: 14px; }
+  #go-stats .st { font-size: 18px; color: rgba(255,255,255,.8); margin: 5px 0; font-weight: 600; }
+  #go-stats .st span { color: #ff7820; font-family: 'Bebas Neue', sans-serif; font-size: 22px; }
+  #pickup-flash { position: absolute; top: 44%; left: 50%; transform: translate(-50%,-50%); font-family: 'Bebas Neue', sans-serif; font-size: 30px; color: #ff7820; text-shadow: 0 0 18px rgba(255,120,32,.9); pointer-events: none; opacity: 0; transition: opacity .1s; white-space: nowrap; }
+  #hit-flash { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,40,40,0); pointer-events: none; transition: background .18s; }
+  #duck-hint { position: absolute; top: 36%; left: 50%; transform: translate(-50%,-50%); font-family: 'Bebas Neue', sans-serif; font-size: 48px; color: #ff4; letter-spacing: 3px; pointer-events: none; opacity: 0; transition: opacity .15s; text-shadow: 0 0 20px rgba(255,255,0,.8); }
+  #fork-indicator { position: absolute; top: 52%; left: 50%; transform: translate(-50%,-50%); font-family: 'Bebas Neue', sans-serif; font-size: 36px; letter-spacing: 4px; pointer-events: none; opacity: 0; transition: opacity .2s; white-space: nowrap; }
+  #fork-indicator.tee   { color: #ff4444; text-shadow: 0 0 24px rgba(255,60,60,1);   animation: forkPulse 0.4s ease-in-out infinite; }
+  #fork-indicator.yfork { color: #ff7820; text-shadow: 0 0 20px rgba(255,120,32,.9); animation: forkPulse 0.7s ease-in-out infinite; }
+  @keyframes forkPulse { 0%,100%{transform:translate(-50%,-50%) scale(1)} 50%{transform:translate(-50%,-50%) scale(1.08)} }
+  #pause-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column; background: rgba(0,0,0,.6); pointer-events: none; }
+  #pause-overlay.hidden { display: none; }
+  #pause-overlay .pause-title { font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: #ff7820; text-shadow: 0 0 30px rgba(255,120,32,.8); letter-spacing: 6px; }
+  #pause-overlay .pause-sub { margin-top: 12px; font-size: 13px; letter-spacing: 3px; color: rgba(255,255,255,.5); text-transform: uppercase; }
+  #laz-countdown { position: absolute; top: 42%; left: 50%; transform: translate(-50%,-50%); font-family: 'Bebas Neue', sans-serif; font-size: 120px; color: #fff; text-shadow: 0 0 40px rgba(255,255,255,.9); pointer-events: none; opacity: 0; transition: opacity .4s; letter-spacing: 4px; }
+</style>
+</head>
+<body>
+<div id="container">
+  <div id="hud">
+    <div id="lives-display">
+      <span class="heart" id="h0">&#x2665;</span>
+      <span class="heart" id="h1">&#x2665;</span>
+      <span class="heart" id="h2">&#x2665;</span>
+    </div>
+    <div id="score-display">
+      <div id="score-val">0</div>
+      <div id="score-label">Score</div>
+    </div>
+    <div id="distance-display">
+      <div id="dist-val">0m</div>
+      <div id="dist-label">Miles</div>
+    </div>
+    <div id="speed-bar-wrap">
+      <div id="speed-bar-track"><div id="speed-bar-fill"></div></div>
+      <div id="speed-label">Speed</div>
+    </div>
+    <div id="hill-indicator"></div>
+    <div id="pickup-flash"></div>
+    <div id="duck-hint">DUCK!</div>
+    <div id="fork-indicator"></div>
+    <div id="laz-countdown"></div>
+    <div id="hit-flash"></div>
+  </div>
+  <div id="pause-overlay" class="hidden">
+    <div class="pause-title">PAUSED</div>
+    <div class="pause-sub" id="pause-sub">Press Escape to Resume</div>
+  </div>
+  <div id="overlay">
+    <div><div class="ol trail" id="tl1">TRAIL</div><div class="ol blaze" id="tl2">BLAZE</div></div>
+    <div id="overlay-sub" style="font-size:12px; letter-spacing:2px; margin-top:6px;">Infinite Trail Runner</div>
+    <div id="laz-text" style="margin-top:18px; text-align:center; color:rgba(255,255,255,0.7); font-size:13px; letter-spacing:2px; line-height:1.7;">
+      Laz is lighting his cigarette...<br>
+      <span style="font-size:11px; color:rgba(255,255,255,0.4);">Press any key to light it</span>
+    </div>
+    <div id="ctrl" style="margin-top:18px;">
+      <span class="k">&#8592; / &#8594;</span><span class="d">Steer left / right</span>
+      <span class="k">A / D</span><span class="d">Turn at a T or take a branch</span>
+      <span class="k">&#8593; / W / Space</span><span class="d">Jump</span>
+      <span class="k">&#8595; / S</span><span class="d">Duck under branches</span>
+      <span class="k">Beer</span><span class="d">Restores 1 life</span>
+    </div>
+    <div id="ctrl-touch" style="margin-top:18px; display:none;">
+      <span class="k">Drag &#8592;&#8594;</span><span class="d">Steer left / right</span>
+      <span class="k">Swipe &#8592;&#8594;</span><span class="d">Turn at a T or fork</span>
+      <span class="k">Swipe Up</span><span class="d">Jump</span>
+      <span class="k">Swipe Down</span><span class="d">Duck under branches</span>
+      <span class="k">Beer</span><span class="d">Restores 1 life</span>
+    </div>
+    <div id="go-stats">
+      <div class="st">Score <span id="go-score">0</span></div>
+      <div class="st">Miles <span id="go-dist">0</span>mi</div>
+      <div class="st">Best <span id="go-best">0</span></div>
+    </div>
+    <div id="start-prompt">Press Any Key to Run</div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+'use strict';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COORDINATE CONVENTION (read this before editing!):
+//   • Camera is at world (0, camY, camZ_POSITIVE) looking toward -Z
+//   • Trail extends in the -Z direction from the player
+//   • Objects spawn at z = -SPAWN_DIST and move toward z = 0 (and beyond)
+//   • Player stays at x = player.x, y = player.jumpY, z = 0 always
+//   • "forward" in the game = negative Z in Three.js world space
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─── Renderer ─────────────────────────────────────────────────────────────────
+const container = document.getElementById('container');
+const renderer  = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
+renderer.toneMapping       = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+container.insertBefore(renderer.domElement, container.firstChild);
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ─── Scene ────────────────────────────────────────────────────────────────────
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceab);
+scene.fog = new THREE.Fog(0x87ceab, 45, 95);
+
+// ─── Camera ───────────────────────────────────────────────────────────────────
+// Standard Three.js convention: camera looks toward -Z.
+// Camera sits BEHIND the player (positive Z), angled down.
+// Player is at Z=0. Trail extends toward negative Z.
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 200);
+camera.position.set(0, 5, 9);   // behind & above player
+camera.lookAt(0, 0.5, -4);      // look forward and slightly down
+
+// ─── Lighting ─────────────────────────────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0xffd580, 0.8));
+const sun = new THREE.DirectionalLight(0xfff5e0, 1.2);
+sun.position.set(10, 25, 10);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
+Object.assign(sun.shadow.camera, { near: 0.5, far: 80, left: -25, right: 25, top: 25, bottom: -25 });
+scene.add(sun);
+scene.add(new THREE.DirectionalLight(0x80c8ff, 0.3).position.set(-8, 8, 5) && sun);
+const fill = new THREE.DirectionalLight(0x80c8ff, 0.3);
+fill.position.set(-8, 8, 5);
+scene.add(fill);
+
+// ─── Materials ────────────────────────────────────────────────────────────────
+const M = {
+  dirt:      new THREE.MeshLambertMaterial({ color: 0xb8895a }),
+  dirtEdge:  new THREE.MeshLambertMaterial({ color: 0x9a6b3e }),
+  grass:     new THREE.MeshLambertMaterial({ color: 0x4e9444 }),
+  rock:      new THREE.MeshLambertMaterial({ color: 0x8c8880 }),
+  rockDk:    new THREE.MeshLambertMaterial({ color: 0x606060 }),
+  rockFace:  new THREE.MeshLambertMaterial({ color: 0x7a7268 }),
+  rockWall:  new THREE.MeshLambertMaterial({ color: 0x5a5248 }),
+  snow:      new THREE.MeshLambertMaterial({ color: 0xeeeeff }),
+  trunk:     new THREE.MeshLambertMaterial({ color: 0x6b3e1a }),
+  leaf:      new THREE.MeshLambertMaterial({ color: 0x2a7a20 }),
+  leafDk:    new THREE.MeshLambertMaterial({ color: 0x1a5a14 }),
+  cactus:    new THREE.MeshLambertMaterial({ color: 0x3a7a2a }),
+  snakeBody: new THREE.MeshLambertMaterial({ color: 0x9a6a22 }),
+  snakeHead: new THREE.MeshLambertMaterial({ color: 0x6a4010 }),
+  snakeEye:  new THREE.MeshLambertMaterial({ color: 0xff8800 }),
+  snakeTong: new THREE.MeshLambertMaterial({ color: 0xff3030 }),
+  scorpion:  new THREE.MeshLambertMaterial({ color: 0x503010 }),
+  scorpionH: new THREE.MeshLambertMaterial({ color: 0x703818 }),
+  scorpionT: new THREE.MeshLambertMaterial({ color: 0x804020 }),
+  scorpionS: new THREE.MeshLambertMaterial({ color: 0xff4400 }),
+  branch:    new THREE.MeshLambertMaterial({ color: 0x5a3010 }),
+  shirt:     new THREE.MeshLambertMaterial({ color: 0xf5f5f5 }),
+  skin:      new THREE.MeshLambertMaterial({ color: 0xf0c090 }),
+  shorts:    new THREE.MeshLambertMaterial({ color: 0x111133 }),
+  cap:       new THREE.MeshLambertMaterial({ color: 0x2277cc }),
+  shoes:     new THREE.MeshLambertMaterial({ color: 0x222222 }),
+  cookie:    new THREE.MeshLambertMaterial({ color: 0xc87028 }),
+  chip:      new THREE.MeshLambertMaterial({ color: 0x3a1a00 }),
+  bread:     new THREE.MeshLambertMaterial({ color: 0xe8c060 }),
+  lettuce:   new THREE.MeshLambertMaterial({ color: 0x60a840 }),
+  meat:      new THREE.MeshLambertMaterial({ color: 0xd04828 }),
+  gelBody:   new THREE.MeshLambertMaterial({ color: 0xff4488 }),
+  gelCap:    new THREE.MeshLambertMaterial({ color: 0xffffff }),
+  barBody:   new THREE.MeshLambertMaterial({ color: 0x883018 }),
+  barStripe: new THREE.MeshLambertMaterial({ color: 0xffcc00 }),
+  beerGlass: new THREE.MeshLambertMaterial({ color: 0xddaa22, transparent: true, opacity: 0.85 }),
+  beerFoam:  new THREE.MeshLambertMaterial({ color: 0xfff8ee }),
+  glowY:     new THREE.MeshBasicMaterial({ color: 0xff7820, transparent: true, opacity: 0.22 }),
+  glowG:     new THREE.MeshBasicMaterial({ color: 0x44ffcc, transparent: true, opacity: 0.18 }),
+  mtn:       new THREE.MeshLambertMaterial({ color: 0x2d6e2d }),
+};
+
+// ─── Sky sphere (far background) ──────────────────────────────────────────────
+scene.add(new THREE.Mesh(
+  new THREE.SphereGeometry(160, 16, 8),
+  new THREE.MeshBasicMaterial({ color: 0x87ceab, side: THREE.BackSide })
+));
+
+// Forest floor ground plane
+const groundPlane = new THREE.Mesh(
+  new THREE.PlaneGeometry(300, 300),
+  new THREE.MeshLambertMaterial({ color: 0x4a7a38 })
+);
+groundPlane.rotation.x = -Math.PI / 2;
+groundPlane.position.y = -0.18;
+groundPlane.receiveShadow = true;
+scene.add(groundPlane);
+
+// Sun disc peeking through the canopy
+const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(2.5, 12, 8),
+  new THREE.MeshBasicMaterial({ color: 0xfffce8 }));
+sunMesh.position.set(20, 38, -70);
+scene.add(sunMesh);
+
+// Distant forest tree-line (silhouette of tall pines in background)
+for (const [x, z, h, r] of [
+  [-18,-75,14,4],[-6,-82,18,5],[10,-78,16,4.5],[28,-72,12,3.5],
+  [-35,-88,20,6],[44,-80,15,4],[0,-92,22,6.5],[-28,-68,11,3],[38,-76,17,5],
+  [-14,-95,19,5.5],[16,-88,13,3.8],[50,-84,16,4.5],[-48,-76,18,5.2]
+]) {
+  // Pine silhouette
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(r, h, 7, 1), M.leafDk);
+  cone.position.set(x, h / 2 - 0.2, z);
+  scene.add(cone);
+  const trunk2 = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, h * 0.4, 6), M.trunk);
+  trunk2.position.set(x, h * 0.1, z);
+  scene.add(trunk2);
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+const TRAIL_W   = 3.6;
+const SEG_LEN   = 5;
+const SEG_COUNT = 26;    // enough to fill camera view + buffer
+const SPAWN_DIST = 55;   // objects spawn this far ahead (negative Z)
+const LANE_X    = [-1.1, 0, 1.1];
+
+// ─── Hill oscillator (visual only — camera Y bobs, segments tilt) ─────────────
+const HILL_SCALE = 0.018;
+const HILL_AMP   = 1.2;
+
+// ─── Trail width state ────────────────────────────────────────────────────────
+// trailHalfW smoothly oscillates so the path narrows to single-track width
+// and widens back to full trail. Canyon walls stay fixed; only the dirt
+// surface scales inward, giving a genuine single-track feel.
+const MIN_TRAIL_HALF = 0.65;   // narrowest (≈1.3 wide — real single track)
+const MAX_TRAIL_HALF = TRAIL_W / 2; // widest (1.8)
+let trailHalfW       = MAX_TRAIL_HALF;
+let targetHalfW      = MAX_TRAIL_HALF;
+let trailWidthTimer  = 4.0;
+function hillOffset(s) {
+  return Math.sin(s * HILL_SCALE) * HILL_AMP
+       + Math.sin(s * HILL_SCALE * 0.45 + 0.9) * HILL_AMP * 0.4;
+}
+function hillSlope(s) {
+  return Math.cos(s * HILL_SCALE) * HILL_AMP * HILL_SCALE
+       + Math.cos(s * HILL_SCALE * 0.45 + 0.9) * HILL_AMP * 0.4 * HILL_SCALE * 0.45;
+}
+
+// ─── Trail segment builder ─────────────────────────────────────────────────────
+function buildSeg() {
+  const g = new THREE.Group();
+
+  // Surface sub-group — only this gets X-scaled for trail narrowing
+  const surf = new THREE.Group();
+  g.add(surf);
+  g.userData.surf = surf; // keep a ref for scaling
+
+  // Dirt surface
+  const dirt = new THREE.Mesh(new THREE.BoxGeometry(TRAIL_W, 0.18, SEG_LEN), M.dirt);
+  dirt.position.y = -0.09;
+  dirt.receiveShadow = true;
+  surf.add(dirt);
+
+  // Edge strips — positioned at ±(TRAIL_W/2) within the surface group
+  for (const s of [-1, 1]) {
+    const edge = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, SEG_LEN), M.dirtEdge);
+    edge.position.set(s * (TRAIL_W / 2 + 0.11), -0.07, 0);
+    surf.add(edge);
+  }
+
+  // Pebbles on the surface
+  for (let i = 0; i < 2; i++) {
+    const s = Math.random() > 0.5 ? 1 : -1;
+    const peb = new THREE.Mesh(
+      new THREE.SphereGeometry(0.06 + Math.random() * 0.07, 4, 3), M.rockDk);
+    peb.position.set(s * (TRAIL_W / 2 - 0.15 - Math.random() * 0.5), 0.05,
+                     (Math.random() - 0.5) * SEG_LEN * 0.7);
+    surf.add(peb);
+  }
+
+  // Forest sides are handled by the separate forest pool (placeTrees/placeForest)
+  // — NOT embedded in segments so they never tilt or shake with hill rotation
+
+  scene.add(g);
+  return g;
+}
+
+const segs = [];
+for (let i = 0; i < SEG_COUNT; i++) {
+  const s = buildSeg();
+  s.userData.worldZ = i * SEG_LEN;
+  segs.push(s);
+}
+
+function placeSegs(scroll) {
+  for (let i = 0; i < SEG_COUNT; i++) {
+    const wz = segs[i].userData.worldZ;
+    const sz = -wz + scroll;
+    segs[i].position.set(0, 0, sz);
+    segs[i].rotation.x = hillSlope(wz) * 0.35;
+
+    // Scale surface sub-group so trail narrows/widens visually
+    if (segs[i].userData.surf) {
+      segs[i].userData.surf.scale.x = trailHalfW / MAX_TRAIL_HALF;
+    }
+
+    // Recycle behind-camera segments to the far end of the trail
+    if (sz > 12) {
+      let maxWZ = 0;
+      for (let j = 0; j < SEG_COUNT; j++) maxWZ = Math.max(maxWZ, segs[j].userData.worldZ);
+      segs[i].userData.worldZ = maxWZ + SEG_LEN;
+    }
+  }
+}
+
+// ─── Trail width update ───────────────────────────────────────────────────────
+function tickTrail(dt) {
+  trailWidthTimer -= dt;
+  if (trailWidthTimer <= 0) {
+    // Bias toward narrow quickly — full narrow bias by 0.01mi
+    const bias = Math.min(1, distance / 0.01);
+    const minTarget = MIN_TRAIL_HALF + (MAX_TRAIL_HALF - MIN_TRAIL_HALF) * (1 - bias) * 0.3;
+    targetHalfW = minTarget + Math.random() * (MAX_TRAIL_HALF - minTarget);
+    trailWidthTimer = 1 + Math.random() * 2; // change every 1–3 seconds
+  }
+  // Snap toward target quickly so narrowing feels urgent
+  trailHalfW += (targetHalfW - trailHalfW) * Math.min(1, dt * 2.5);
+}
+
+// ─── Forest pool (replaces sparse side trees) ────────────────────────────────
+// Two layers: NEAR trees just off the trail edge, FAR trees deeper in the forest.
+// All placed via position only — never parented to segments, so they never tilt.
+
+function buildForestTree() {
+  const g = new THREE.Group();
+  const tall = Math.random() > 0.35;
+  const h  = tall ? 4.0 + Math.random() * 4.0 : 1.8 + Math.random() * 2.0;
+  const tw = h * 0.09 + 0.04;
+
+  const trunk = new THREE.Mesh(
+    new THREE.CylinderGeometry(tw * 0.45, tw * 0.7, h * 0.45, 6), M.trunk);
+  trunk.position.y = h * 0.225;
+  trunk.castShadow = true;
+  g.add(trunk);
+
+  if (tall) {
+    for (let layer = 0; layer < 3; layer++) {
+      const lr = h * 0.30 - layer * h * 0.07;
+      const lh = h * 0.44 - layer * h * 0.05;
+      const cone = new THREE.Mesh(
+        new THREE.ConeGeometry(lr, lh, 7), layer % 2 ? M.leafDk : M.leaf);
+      cone.position.y = h * 0.38 + layer * h * 0.18;
+      cone.castShadow = true;
+      g.add(cone);
+    }
+  } else {
+    const cr = new THREE.Mesh(
+      new THREE.SphereGeometry(h * 0.42, 7, 5), Math.random() > 0.5 ? M.leaf : M.leafDk);
+    cr.position.set(0, h * 0.78, 0);
+    cr.scale.set(1, 0.82, 1);
+    cr.castShadow = true;
+    g.add(cr);
+  }
+  return g;
+}
+
+function buildBush() {
+  const g = new THREE.Group();
+  const r = 0.2 + Math.random() * 0.22;
+  const m = new THREE.Mesh(
+    new THREE.SphereGeometry(r, 6, 4), Math.random() > 0.5 ? M.leaf : M.leafDk);
+  m.scale.set(1.3, 0.65, 1.1);
+  m.position.y = r * 0.5;
+  g.add(m);
+  return g;
+}
+
+// Near layer: dense trees just off the trail edge (xOff ≈ 2–5)
+const NEAR_COUNT = 60;
+const nearTrees  = [];
+for (let i = 0; i < NEAR_COUNT; i++) {
+  const t = buildForestTree();
+  t.userData.side   = i % 2 ? 1 : -1;
+  t.userData.layer  = 'near';
+  t.userData.worldZ = (i / NEAR_COUNT) * (SEG_COUNT * SEG_LEN);
+  scene.add(t);
+  nearTrees.push(t);
+}
+
+// Bush layer: ground cover right at the trail edge
+const BUSH_COUNT = 40;
+const bushes = [];
+for (let i = 0; i < BUSH_COUNT; i++) {
+  const b = buildBush();
+  b.userData.side   = i % 2 ? 1 : -1;
+  b.userData.worldZ = (i / BUSH_COUNT) * (SEG_COUNT * SEG_LEN);
+  scene.add(b);
+  bushes.push(b);
+}
+
+// Far layer: reuse the original tree pool for deep background trees
+const trees = [];
+const TREE_COUNT = 24;
+for (let i = 0; i < TREE_COUNT; i++) {
+  const t = buildForestTree();
+  t.userData.side   = i % 2 ? 1 : -1;
+  t.userData.layer  = 'far';
+  t.userData.worldZ = (i / TREE_COUNT) * (SEG_COUNT * SEG_LEN);
+  scene.add(t);
+  trees.push(t);
+}
+
+// Helper: assign a fixed random xOff that is stored in userData (not recomputed per frame)
+function assignNearXOff(t) {
+  let x = t.userData.side * (TRAIL_W / 2 + 0.8 + Math.random() * 3.5);
+  // Keep clear of Laz (right side, x ≈ 3.2)
+  if (t.userData.side === 1 && x > 2.2 && x < 4.6) x = 4.8 + Math.random() * 1.0;
+  t.userData.xOff = x;
+}
+function assignBushXOff(b) {
+  let x = b.userData.side * (TRAIL_W / 2 + 0.1 + Math.random() * 1.2);
+  // Keep clear of Laz
+  if (b.userData.side === 1 && x > 2.2 && x < 4.6) x = 4.8 + Math.random() * 0.6;
+  b.userData.xOff = x;
+}
+function assignFarXOff(t)   { t.userData.xOff = t.userData.side * (TRAIL_W / 2 + 9   + Math.random() * 5.0); }
+
+// Assign initial xOff values
+for (const t of nearTrees) assignNearXOff(t);
+for (const b of bushes)    assignBushXOff(b);
+for (const t of trees)     assignFarXOff(t);
+
+function placeForest(scroll) {
+  const range = SEG_COUNT * SEG_LEN;
+
+  // Near trees
+  const nearStep = range / NEAR_COUNT;
+  for (const t of nearTrees) {
+    const sz = -(t.userData.worldZ) + scroll;
+    if (sz > 14) {
+      let maxWZ = 0;
+      for (const t2 of nearTrees) maxWZ = Math.max(maxWZ, t2.userData.worldZ);
+      t.userData.worldZ = maxWZ + nearStep * 0.4 + Math.random() * nearStep * 0.8;
+      t.userData.side   = Math.random() > 0.5 ? 1 : -1;
+      t.rotation.y      = Math.random() * Math.PI * 2;
+      assignNearXOff(t); // store new fixed xOff
+    }
+    t.position.set(t.userData.xOff, 0, -(t.userData.worldZ) + scroll);
+  }
+
+  // Bushes
+  const bushStep = range / BUSH_COUNT;
+  for (const b of bushes) {
+    const sz = -(b.userData.worldZ) + scroll;
+    if (sz > 14) {
+      let maxWZ = 0;
+      for (const b2 of bushes) maxWZ = Math.max(maxWZ, b2.userData.worldZ);
+      b.userData.worldZ = maxWZ + bushStep * 0.4 + Math.random() * bushStep * 0.8;
+      b.userData.side   = Math.random() > 0.5 ? 1 : -1;
+      assignBushXOff(b);
+    }
+    b.position.set(b.userData.xOff, 0, -(b.userData.worldZ) + scroll);
+  }
+
+  // Far background trees
+  const farStep = range / TREE_COUNT;
+  for (const t of trees) {
+    const sz = -(t.userData.worldZ) + scroll;
+    if (sz > 14) {
+      let maxWZ = 0;
+      for (const t2 of trees) maxWZ = Math.max(maxWZ, t2.userData.worldZ);
+      t.userData.worldZ = maxWZ + farStep * 0.5 + Math.random() * farStep;
+      t.userData.side   = Math.random() > 0.5 ? 1 : -1;
+      t.rotation.y      = Math.random() * Math.PI * 2;
+      assignFarXOff(t);
+    }
+    t.position.set(t.userData.xOff, 0, -(t.userData.worldZ) + scroll);
+  }
+}
+
+// ─── Player ───────────────────────────────────────────────────────────────────
+const playerGroup = new THREE.Group();
+playerGroup.position.set(0, 0, 0);
+scene.add(playerGroup);
+
+(function buildRunner() {
+  function add(geo, mat, x, y, z) {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, z); m.castShadow = true;
+    playerGroup.add(m); return m;
+  }
+  add(new THREE.BoxGeometry(0.5, 0.55, 0.28), M.shirt,  0, 0.75, 0);
+
+  // "Satisfy" brand text — orange stripe logo on chest
+  const logoMat = new THREE.MeshBasicMaterial({ color: 0xff5500 });
+  const logoBar = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.045, 0.01), logoMat);
+  logoBar.position.set(0, 0.82, 0.145);
+  playerGroup.add(logoBar);
+  const logoBar2 = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.03, 0.01), logoMat);
+  logoBar2.position.set(-0.03, 0.77, 0.145);
+  playerGroup.add(logoBar2);
+
+  // Holes in the shirt — large, ragged tears
+  const holeMat = new THREE.MeshBasicMaterial({ color: 0x9ab09a });
+  for (const [hx, hy, hr] of [
+    [-0.09, 0.70, 0.055], [0.11, 0.74, 0.048], [-0.04, 0.59, 0.062],
+    [0.07,  0.63, 0.044], [-0.13, 0.80, 0.038], [0.15, 0.67, 0.051]
+  ]) {
+    const hole = new THREE.Mesh(new THREE.CircleGeometry(hr, 7), holeMat);
+    hole.position.set(hx, hy, 0.146);
+    playerGroup.add(hole);
+  }
+
+  add(new THREE.SphereGeometry(0.22, 8, 7),   M.skin,   0, 1.28, 0);
+  add(new THREE.CylinderGeometry(0.24, 0.22, 0.1, 8), M.cap, 0, 1.46, 0);
+  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.04, 8), M.cap);
+  brim.position.set(0.06, 1.38, -0.04); brim.rotation.x = -0.18; brim.castShadow = true;
+  playerGroup.add(brim);
+  add(new THREE.BoxGeometry(0.52, 0.28, 0.28), M.shorts, 0, 0.42, 0);
+  const lGeo = new THREE.BoxGeometry(0.17, 0.36, 0.17);
+  playerGroup.userData.legL = add(lGeo, M.skin, -0.14, 0.11, 0);
+  playerGroup.userData.legR = add(lGeo, M.skin,  0.14, 0.11, 0);
+  const sGeo = new THREE.BoxGeometry(0.19, 0.1, 0.28);
+  add(sGeo, M.shoes, -0.14, -0.04, -0.05);
+  add(sGeo, M.shoes,  0.14, -0.04, -0.05);
+  const aGeo = new THREE.BoxGeometry(0.14, 0.38, 0.14);
+  playerGroup.userData.armL = add(aGeo, M.shirt, -0.34, 0.78, 0);
+  playerGroup.userData.armR = add(aGeo, M.shirt,  0.34, 0.78, 0);
+})();
+
+// ─── Laz (Race Director) ──────────────────────────────────────────────────────
+// Lazarus Lake — flannel shirt, big white beard, cigarette. Stands trailside
+// during the start screen, lights his cigarette to signal the race begins.
+const lazGroup = new THREE.Group();
+lazGroup.position.set(3.2, 0, -2.5);
+lazGroup.rotation.y = Math.PI * 0.85; // facing toward trail/camera
+scene.add(lazGroup);
+
+const flannelMat = new THREE.MeshLambertMaterial({ color: 0x8b3a2a }); // deep red flannel
+const flannelDk  = new THREE.MeshLambertMaterial({ color: 0x5a2018 }); // flannel plaid stripe
+const lazSkin    = new THREE.MeshLambertMaterial({ color: 0xd4926a });
+const lazJeans   = new THREE.MeshLambertMaterial({ color: 0x2c3e6a });
+const lazShoes   = new THREE.MeshLambertMaterial({ color: 0x1a1008 });
+const beardMat   = new THREE.MeshLambertMaterial({ color: 0xf0eeec }); // thick white beard
+const hairMat    = new THREE.MeshLambertMaterial({ color: 0xd4cfc8 }); // grey hair
+const cigMat     = new THREE.MeshLambertMaterial({ color: 0xf5e8c0 });
+const cigTipMat  = new THREE.MeshBasicMaterial({ color: 0xff4400 });
+
+(function buildLaz() {
+  function laz(geo, mat, x, y, z, rx, ry, rz) {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, z);
+    if (rx) m.rotation.x = rx;
+    if (ry) m.rotation.y = ry;
+    if (rz) m.rotation.z = rz;
+    m.castShadow = true;
+    lazGroup.add(m);
+    return m;
+  }
+
+  // Body — stocky build, big flannel shirt
+  laz(new THREE.BoxGeometry(0.72, 0.65, 0.38), flannelMat,  0, 0.98, 0);
+  // Plaid stripe across chest
+  laz(new THREE.BoxGeometry(0.73, 0.055, 0.39), flannelDk, 0, 1.12, 0);
+  laz(new THREE.BoxGeometry(0.73, 0.055, 0.39), flannelDk, 0, 0.88, 0);
+  laz(new THREE.BoxGeometry(0.055, 0.66, 0.39), flannelDk, -0.18, 0.98, 0);
+  laz(new THREE.BoxGeometry(0.055, 0.66, 0.39), flannelDk,  0.18, 0.98, 0);
+
+  // Head — larger, rounder
+  laz(new THREE.SphereGeometry(0.30, 10, 8), lazSkin, 0, 1.82, 0);
+  // Thinning grey hair on top
+  laz(new THREE.SphereGeometry(0.29, 8, 5), hairMat, 0, 2.06, 0);
+
+  // Big full white beard — layered blobs
+  laz(new THREE.SphereGeometry(0.26, 8, 6),    beardMat,  0,    1.62, 0.14); // main mass
+  laz(new THREE.SphereGeometry(0.20, 7, 5),    beardMat, -0.14, 1.70, 0.13);
+  laz(new THREE.SphereGeometry(0.20, 7, 5),    beardMat,  0.14, 1.70, 0.13);
+  laz(new THREE.SphereGeometry(0.16, 7, 5),    beardMat,  0,    1.50, 0.18); // chin
+  laz(new THREE.SphereGeometry(0.13, 6, 4),    beardMat, -0.10, 1.80, 0.17); // sideburn L
+  laz(new THREE.SphereGeometry(0.13, 6, 4),    beardMat,  0.10, 1.80, 0.17); // sideburn R
+  // Moustache
+  laz(new THREE.BoxGeometry(0.28, 0.07, 0.08), beardMat,  0,    1.72, 0.22);
+
+  // Jeans + boots
+  laz(new THREE.BoxGeometry(0.68, 0.32, 0.34), lazJeans, 0, 0.56, 0);
+  const legGeo = new THREE.BoxGeometry(0.24, 0.44, 0.24);
+  laz(legGeo, lazJeans, -0.18, 0.18, 0);
+  laz(legGeo, lazJeans,  0.18, 0.18, 0);
+  laz(new THREE.BoxGeometry(0.26, 0.14, 0.32), lazShoes, -0.18, -0.02, -0.04);
+  laz(new THREE.BoxGeometry(0.26, 0.14, 0.32), lazShoes,  0.18, -0.02, -0.04);
+
+  // Arms — right arm raised, holding cigarette
+  const armGeo = new THREE.BoxGeometry(0.20, 0.48, 0.20);
+  laz(armGeo, flannelMat, -0.50, 0.98,  0, 0.3, 0, 0.15);  // left arm down
+  const rArm = laz(armGeo, flannelMat,  0.50, 1.18, 0, -1.1, 0, -0.2); // right arm raised
+  rArm.name = 'lazRArm';
+
+  // Hand holding cigarette
+  laz(new THREE.SphereGeometry(0.10, 7, 5), lazSkin, 0.56, 1.56, 0.08);
+
+  // Cigarette
+  const cig = laz(new THREE.CylinderGeometry(0.018, 0.018, 0.22, 6), cigMat, 0.56, 1.68, 0.18, -0.3, 0, 0.15);
+  cig.name = 'lazCig';
+
+  // Cigarette ember tip (starts unlit)
+  const ember = laz(new THREE.SphereGeometry(0.024, 6, 4), new THREE.MeshBasicMaterial({ color: 0x331100 }), 0.56, 1.78, 0.22);
+  ember.name = 'lazEmber';
+  lazGroup.userData.ember = ember;
+
+  // Flame — a small cone + glow sphere, hidden until lighter fires
+  const flameGeo  = new THREE.ConeGeometry(0.055, 0.14, 6);
+  const flameMat  = new THREE.MeshBasicMaterial({ color: 0xff8800 });
+  const flame     = new THREE.Mesh(flameGeo, flameMat);
+  flame.position.set(0.44, 1.55, 0.16);
+  flame.rotation.z = 0.3;
+  flame.visible    = false;
+  lazGroup.add(flame);
+  lazGroup.userData.flame = flame;
+
+  const glowGeo = new THREE.SphereGeometry(0.09, 7, 5);
+  const glowMat = new THREE.MeshBasicMaterial({ color: 0xff6600, transparent: true, opacity: 0.55 });
+  const flameGlow = new THREE.Mesh(glowGeo, glowMat);
+  flameGlow.position.set(0.44, 1.56, 0.16);
+  flameGlow.visible = false;
+  lazGroup.add(flameGlow);
+  lazGroup.userData.flameGlow = flameGlow;
+
+  // Lighter (small box in right hand area)
+  laz(new THREE.BoxGeometry(0.06, 0.09, 0.03), new THREE.MeshLambertMaterial({ color: 0xccaa00 }), 0.50, 1.52, 0.14);
+})();
+
+// Smoke particles for cigarette
+const LAZ_SMOKE = [];
+for (let i = 0; i < 18; i++) {
+  const m = new THREE.Mesh(
+    new THREE.SphereGeometry(0.04 + Math.random() * 0.05, 5, 4),
+    new THREE.MeshBasicMaterial({ color: 0xbbbbbb, transparent: true, opacity: 0 })
+  );
+  m.visible = false;
+  scene.add(m);
+  LAZ_SMOKE.push({ m, on: false, vx: 0, vy: 0, life: 0, max: 1, worldX: 0, worldY: 0, worldZ: 0 });
+}
+
+let lazLit = false;
+let lazSmokeTimer = 0;
+let lazPreTimer   = -1;   // counts down before lighting (-1 = inactive)
+let lazIntroTimer = 0;    // counts down after lighting before race starts
+const LAZ_PRE_DELAY = 3.0;  // seconds to watch Laz before he lights up
+const LAZ_LIT_DELAY = 2.2;  // seconds of smoking before race starts
+
+function emitLazSmoke() {
+  for (const p of LAZ_SMOKE) {
+    if (p.on) continue;
+    // World position of cigarette tip
+    p.on = true; p.m.visible = true;
+    p.m.position.set(lazGroup.position.x + 0.56, lazGroup.position.y + 1.80, lazGroup.position.z + 0.24);
+    p.vx = (Math.random() - 0.5) * 0.3;
+    p.vy = 0.5 + Math.random() * 0.4;
+    p.vz = (Math.random() - 0.5) * 0.2;
+    p.life = 1; p.max = 1.2 + Math.random() * 0.8;
+    p.m.scale.setScalar(0.5);
+    break;
+  }
+}
+
+function tickLazSmoke(dt) {
+  for (const p of LAZ_SMOKE) {
+    if (!p.on) continue;
+    p.life -= dt / p.max;
+    if (p.life <= 0) { p.on = false; p.m.visible = false; p.m.material.opacity = 0; continue; }
+    p.m.position.x += p.vx * dt;
+    p.m.position.y += p.vy * dt;
+    p.m.position.z += p.vz * dt;
+    // Fade in then out, grow
+    const t = 1 - p.life;
+    p.m.material.opacity = t < 0.15 ? t / 0.15 * 0.55 : p.life * 0.55;
+    p.m.scale.setScalar(0.5 + t * 1.8);
+  }
+}
+
+function lightCigarette() {
+  if (lazLit) return;
+  lazLit = true;
+  // Show flame
+  lazGroup.userData.flame.visible     = true;
+  lazGroup.userData.flameGlow.visible = true;
+  // Ember glows orange-red
+  lazGroup.userData.ember.material.color.setHex(0xff4400);
+  // Add point light at cigarette tip
+  const cigLight = new THREE.PointLight(0xff5500, 3.5, 5.0);
+  cigLight.position.set(
+    lazGroup.position.x + 0.56,
+    lazGroup.position.y + 1.80,
+    lazGroup.position.z + 0.24
+  );
+  scene.add(cigLight);
+  lazGroup.userData.cigLight = cigLight;
+  // SFX: lighter flick
+  sfxLighterFlick();
+  // After a beat, hide flame (lighter closes) but keep ember + smoke
+  setTimeout(() => {
+    if (lazGroup.userData.flame) lazGroup.userData.flame.visible = false;
+    if (lazGroup.userData.flameGlow) lazGroup.userData.flameGlow.visible = false;
+  }, 700);
+}
+
+function tickLaz(dt) {
+  lazSmokeTimer -= dt;
+  if (lazSmokeTimer <= 0) {
+    emitLazSmoke();
+    lazSmokeTimer = 0.10 + Math.random() * 0.1;
+  }
+  tickLazSmoke(dt);
+  // Flicker flame while visible
+  const flame = lazGroup.userData.flame;
+  if (flame && flame.visible) {
+    const flicker = 0.85 + Math.sin(Date.now() * 0.04) * 0.15 + Math.random() * 0.1;
+    flame.scale.setScalar(flicker);
+    lazGroup.userData.flameGlow.scale.setScalar(flicker * 1.2);
+    lazGroup.userData.flameGlow.material.opacity = 0.4 + Math.random() * 0.25;
+    if (lazGroup.userData.cigLight)
+      lazGroup.userData.cigLight.intensity = 2.5 + Math.random() * 1.5;
+  } else if (lazGroup.userData.cigLight) {
+    // Just ember glow — dim flicker
+    lazGroup.userData.cigLight.intensity = 0.8 + Math.sin(Date.now() * 0.015) * 0.3 + Math.random() * 0.2;
+  }
+}
+
+function hideLaz() {
+  lazGroup.visible = false;
+  for (const p of LAZ_SMOKE) { p.on = false; p.m.visible = false; }
+  if (lazGroup.userData.cigLight) { scene.remove(lazGroup.userData.cigLight); lazGroup.userData.cigLight = null; }
+  if (lazGroup.userData.flame)     lazGroup.userData.flame.visible = false;
+  if (lazGroup.userData.flameGlow) lazGroup.userData.flameGlow.visible = false;
+}
+
+// ─── Audio engine ─────────────────────────────────────────────────────────────
+const AC = new (window.AudioContext || window.webkitAudioContext)();
+let musicGain, musicPlaying = false, musicNodes = [];
+let paused = false;
+
+function resumeAC() { if (AC.state === 'suspended') AC.resume(); }
+
+// ── SFX helpers ──────────────────────────────────────────────────────────────
+function sfxPickup() {
+  resumeAC();
+  const now = AC.currentTime;
+  const freqs = [880, 1108, 1320, 1760];
+  freqs.forEach((f, i) => {
+    const osc  = AC.createOscillator();
+    const gain = AC.createGain();
+    osc.connect(gain); gain.connect(AC.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(f, now + i * 0.06);
+    gain.gain.setValueAtTime(0.18, now + i * 0.06);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.06 + 0.18);
+    osc.start(now + i * 0.06);
+    osc.stop(now + i * 0.06 + 0.2);
+  });
+}
+
+function sfxBeer() {
+  resumeAC();
+  const now = AC.currentTime;
+  for (let i = 0; i < 5; i++) {
+    const osc  = AC.createOscillator();
+    const gain = AC.createGain();
+    osc.connect(gain); gain.connect(AC.destination);
+    osc.type = 'sine';
+    const f = 300 - i * 30;
+    osc.frequency.setValueAtTime(f * 1.3, now + i * 0.07);
+    osc.frequency.exponentialRampToValueAtTime(f, now + i * 0.07 + 0.1);
+    gain.gain.setValueAtTime(0.22, now + i * 0.07);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.07 + 0.18);
+    osc.start(now + i * 0.07);
+    osc.stop(now + i * 0.07 + 0.2);
+  }
+  // Splash noise
+  const buf  = AC.createBuffer(1, AC.sampleRate * 0.15, AC.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.12;
+  const src  = AC.createBufferSource();
+  const filt = AC.createBiquadFilter();
+  const ng   = AC.createGain();
+  src.buffer = buf;
+  filt.type = 'bandpass'; filt.frequency.value = 800; filt.Q.value = 0.8;
+  src.connect(filt); filt.connect(ng); ng.connect(AC.destination);
+  ng.gain.setValueAtTime(1, now);
+  ng.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+  src.start(now);
+}
+
+function sfxDamage() {
+  resumeAC();
+  const now = AC.currentTime;
+  // Low thud
+  const osc  = AC.createOscillator();
+  const gain = AC.createGain();
+  osc.connect(gain); gain.connect(AC.destination);
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(160, now);
+  osc.frequency.exponentialRampToValueAtTime(40, now + 0.25);
+  gain.gain.setValueAtTime(0.35, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+  osc.start(now); osc.stop(now + 0.32);
+  // Crunch noise burst
+  const buf  = AC.createBuffer(1, AC.sampleRate * 0.1, AC.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1);
+  const src  = AC.createBufferSource();
+  const filt = AC.createBiquadFilter();
+  const ng   = AC.createGain();
+  src.buffer = buf;
+  filt.type = 'lowpass'; filt.frequency.value = 400;
+  src.connect(filt); filt.connect(ng); ng.connect(AC.destination);
+  ng.gain.setValueAtTime(0.28, now);
+  ng.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+  src.start(now);
+}
+
+function sfxGameOver() {
+  resumeAC();
+  const now = AC.currentTime;
+  const notes = [440, 370, 294, 220];
+  notes.forEach((f, i) => {
+    const osc  = AC.createOscillator();
+    const gain = AC.createGain();
+    osc.connect(gain); gain.connect(AC.destination);
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(f, now + i * 0.18);
+    gain.gain.setValueAtTime(0.15, now + i * 0.18);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.18 + 0.32);
+    osc.start(now + i * 0.18);
+    osc.stop(now + i * 0.18 + 0.35);
+  });
+}
+
+function sfxLighterFlick() {
+  resumeAC();
+  const now = AC.currentTime;
+  // Scrape sound — short noise burst
+  const buf  = AC.createBuffer(1, Math.floor(AC.sampleRate * 0.06), AC.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1);
+  const src  = AC.createBufferSource();
+  const filt = AC.createBiquadFilter();
+  const ng   = AC.createGain();
+  src.buffer = buf;
+  filt.type = 'bandpass'; filt.frequency.value = 3200; filt.Q.value = 1.2;
+  src.connect(filt); filt.connect(ng); ng.connect(AC.destination);
+  ng.gain.setValueAtTime(0.3, now);
+  ng.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+  src.start(now);
+  // Small pop of ignition
+  const osc  = AC.createOscillator();
+  const gain = AC.createGain();
+  osc.connect(gain); gain.connect(AC.destination);
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(900, now + 0.04);
+  osc.frequency.exponentialRampToValueAtTime(200, now + 0.12);
+  gain.gain.setValueAtTime(0.18, now + 0.04);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+  osc.start(now + 0.04); osc.stop(now + 0.2);
+}
+
+// ── Background music ──────────────────────────────────────────────────────────
+// Funky procedural loop: bass line + chord stabs + hi-hat rhythm
+function startMusic() {
+  if (musicPlaying) return;
+  resumeAC();
+  musicPlaying = true;
+
+  const masterGain = AC.createGain();
+  masterGain.gain.value = 0.28;
+  masterGain.connect(AC.destination);
+  musicGain = masterGain;
+  musicNodes.push(masterGain);
+
+  const BPM = 118;
+  const beat = 60 / BPM;
+
+  // Bass line: repeating funky 8-bar pattern
+  const bassNotes = [
+    55, 55, 0, 55, 73, 0, 62, 0,
+    55, 55, 0, 55, 65, 0, 62, 55,
+    58, 58, 0, 58, 77, 0, 65, 0,
+    58, 58, 0, 58, 69, 0, 65, 58,
+  ];
+  const patLen = bassNotes.length * beat * 0.5;
+
+  function scheduleBass(startTime) {
+    const bassGain = AC.createGain();
+    bassGain.gain.value = 0.7;
+    bassGain.connect(masterGain);
+    bassNotes.forEach((note, i) => {
+      if (note === 0) return;
+      const t = startTime + i * beat * 0.5;
+      const osc = AC.createOscillator();
+      const env = AC.createGain();
+      osc.connect(env); env.connect(bassGain);
+      osc.type = 'sawtooth';
+      osc.frequency.value = note;
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(0.9, t + 0.01);
+      env.gain.exponentialRampToValueAtTime(0.001, t + beat * 0.45);
+      osc.start(t); osc.stop(t + beat * 0.5);
+      musicNodes.push(osc);
+    });
+  }
+
+  // Chord stabs on beats 2 and 4
+  const chords = [[55,69,82],[58,72,86],[62,74,89],[65,77,91]];
+  function scheduleChords(startTime) {
+    const chordGain = AC.createGain();
+    chordGain.gain.value = 0.18;
+    chordGain.connect(masterGain);
+    for (let bar = 0; bar < 8; bar++) {
+      const chordSet = chords[bar % chords.length];
+      [1, 3].forEach(beatPos => {
+        const t = startTime + (bar * 4 + beatPos) * beat;
+        chordSet.forEach(freq => {
+          const osc = AC.createOscillator();
+          const env = AC.createGain();
+          osc.connect(env); env.connect(chordGain);
+          osc.type = 'square';
+          osc.frequency.value = freq;
+          env.gain.setValueAtTime(0.8, t);
+          env.gain.exponentialRampToValueAtTime(0.001, t + beat * 0.3);
+          osc.start(t); osc.stop(t + beat * 0.35);
+          musicNodes.push(osc);
+        });
+      });
+    }
+  }
+
+  // Hi-hat: 16th-note noise bursts
+  function scheduleHats(startTime) {
+    const hatGain = AC.createGain();
+    hatGain.gain.value = 0.22;
+    hatGain.connect(masterGain);
+    for (let i = 0; i < 32; i++) {
+      const t = startTime + i * beat * 0.5;
+      const isDownbeat = i % 2 === 0;
+      const buf  = AC.createBuffer(1, Math.floor(AC.sampleRate * 0.04), AC.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let j = 0; j < data.length; j++) data[j] = Math.random() * 2 - 1;
+      const src  = AC.createBufferSource();
+      const filt = AC.createBiquadFilter();
+      const env  = AC.createGain();
+      src.buffer = buf;
+      filt.type = 'highpass'; filt.frequency.value = 8000;
+      src.connect(filt); filt.connect(env); env.connect(hatGain);
+      env.gain.setValueAtTime(isDownbeat ? 1.0 : 0.45, t);
+      env.gain.exponentialRampToValueAtTime(0.001, t + 0.035);
+      src.start(t);
+      musicNodes.push(src);
+    }
+  }
+
+  // Kick drum: thumpy sine sweep on beat 1 and 3
+  function scheduleKick(startTime) {
+    const kickGain = AC.createGain();
+    kickGain.gain.value = 0.9;
+    kickGain.connect(masterGain);
+    for (let bar = 0; bar < 8; bar++) {
+      [0, 2].forEach(beatPos => {
+        const t = startTime + (bar * 4 + beatPos) * beat;
+        const osc = AC.createOscillator();
+        const env = AC.createGain();
+        osc.connect(env); env.connect(kickGain);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(160, t);
+        osc.frequency.exponentialRampToValueAtTime(40, t + 0.15);
+        env.gain.setValueAtTime(1, t);
+        env.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+        osc.start(t); osc.stop(t + 0.25);
+        musicNodes.push(osc);
+      });
+    }
+  }
+
+  // Schedule looping patterns
+  const loopLen = 8 * 4 * beat; // 8 bars
+  let loopStart = AC.currentTime + 0.05;
+
+  function scheduleLoop(t) {
+    scheduleBass(t);
+    scheduleChords(t);
+    scheduleHats(t);
+    scheduleKick(t);
+    // Schedule the next loop slightly before this one ends
+    const nextStart = t + loopLen;
+    const scheduleAhead = loopLen - 0.5;
+    const timerId = setTimeout(() => {
+      if (musicPlaying) scheduleLoop(nextStart);
+    }, scheduleAhead * 1000);
+    musicNodes.push({ _timerId: timerId }); // store for cleanup
+  }
+
+  scheduleLoop(loopStart);
+}
+
+function stopMusic() {
+  musicPlaying = false;
+  for (const n of musicNodes) {
+    if (n._timerId !== undefined) { clearTimeout(n._timerId); continue; }
+    try { n.stop ? n.stop(0) : n.disconnect(); } catch(_) {}
+  }
+  musicNodes = [];
+}
+
+function pauseMusic() {
+  if (AC.state === 'running') AC.suspend();
+}
+function resumeMusic() {
+  if (AC.state === 'suspended') AC.resume();
+}
+
+// ── Pause on Escape ───────────────────────────────────────────────────────────
+function togglePause() {
+  paused = !paused;
+  const pauseEl = document.getElementById('pause-overlay');
+  if (paused) {
+    pauseMusic();
+    pauseEl.classList.remove('hidden');
+  } else {
+    resumeMusic();
+    pauseEl.classList.add('hidden');
+  }
+}
+addEventListener('keydown', e => {
+  if (e.code === 'Escape' && state === STATE.PLAYING) togglePause();
+});
+
+// ── Pause on double-tap (mobile) ──────────────────────────────────────────────
+let lastTapTime = 0, suppressNextTap = false;
+addEventListener('touchstart', e => {
+  if (state !== STATE.PLAYING) return;
+  const now = performance.now();
+  if (now - lastTapTime < 300) {
+    togglePause();
+    suppressNextTap = true;
+  }
+  lastTapTime = now;
+}, { passive: true });
+
+// ─── Game state ───────────────────────────────────────────────────────────────
+const STATE = { START: 0, PLAYING: 1, HIT: 2, GAMEOVER: 3 };
+let state = STATE.START;
+let score = 0, hiScore = 0, lives = 3, distance = 0;
+let scroll = 0;
+let speed  = 8;
+let hitTimer  = 0;
+let startGrace = 0;
+const HIT_GRACE   = 1.8;
+const START_GRACE = 2.5;
+const BASE_SPEED  = 12;
+let spawnTimer = 0;
+
+const player = {
+  x: 0, xVel: 0,
+  jumpY: 0, jumpVel: 0, jumping: false,
+  sliding: false, slideTimer: 0,
+  runCycle: 0,
+  JUMP_VEL: 8.0, GRAVITY: -22,
+  SLIDE_DUR: 0.65,
+  STEER: 7.0, FRIC: 4.5, MAX_X: 1.4,
+};
+
+// ─── Input ────────────────────────────────────────────────────────────────────
+const keys = {}, jp = {};
+addEventListener('keydown', e => {
+  if (!keys[e.code]) jp[e.code] = true;
+  keys[e.code] = true;
+  if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Escape'].includes(e.code)) e.preventDefault();
+});
+addEventListener('keyup', e => { keys[e.code] = false; });
+const eat = c => jp[c] ? (jp[c] = false, true) : false;
+const jumpKey   = () => eat('ArrowUp')    || eat('KeyW') || eat('Space');
+const duckKey   = () => eat('ArrowDown')  || eat('KeyS');
+const leftHeld  = () => keys['ArrowLeft']  || touchDragX < -TOUCH_STEER_PX;
+const rightHeld = () => keys['ArrowRight'] || touchDragX >  TOUCH_STEER_PX;
+const forkLeft  = () => eat('KeyA');
+const forkRight = () => eat('KeyD');
+const anyKey    = () => Object.values(jp).some(Boolean);
+const clearJP   = () => { for (const k in jp) jp[k] = false; };
+
+let tx = 0, ty = 0, touchStartTime = 0, touchDragX = 0;
+const TOUCH_STEER_PX  = 18;  // px offset before steering kicks in
+const TOUCH_SWIPE_PX  = 55;  // px for a quick fork/turn swipe
+const TOUCH_SWIPE_MS  = 280; // max ms for a swipe to count as intentional
+
+addEventListener('touchstart', e => {
+  tx = e.touches[0].clientX;
+  ty = e.touches[0].clientY;
+  touchStartTime = performance.now();
+  touchDragX = 0;
+}, { passive: true });
+
+addEventListener('touchmove', e => {
+  touchDragX = e.touches[0].clientX - tx;
+}, { passive: true });
+
+addEventListener('touchend', e => {
+  if (suppressNextTap) { suppressNextTap = false; touchDragX = 0; return; }
+
+  const cx = e.changedTouches[0].clientX;
+  const cy = e.changedTouches[0].clientY;
+  const dx = cx - tx, dy = cy - ty;
+  const elapsed = performance.now() - touchStartTime;
+  const adx = Math.abs(dx), ady = Math.abs(dy);
+
+  if (ady > adx && ady > 30) {
+    // Vertical swipe → jump or duck
+    jp[dy < 0 ? 'ArrowUp' : 'ArrowDown'] = true;
+  } else if (elapsed < TOUCH_SWIPE_MS && adx > TOUCH_SWIPE_PX && adx > ady * 1.5) {
+    // Quick horizontal swipe → fork/turn
+    jp[dx > 0 ? 'KeyD' : 'KeyA'] = true;
+  } else if (adx < 20 && ady < 20) {
+    // Tap → jump / start
+    jp['Space'] = true;
+  }
+  touchDragX = 0;
+}, { passive: true });
+
+// ─── Object builders ──────────────────────────────────────────────────────────
+// Every obstacle gets a ground warning ring so it's never invisible.
+function addWarningRing(g, color) {
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(0.55, 0.75, 18),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7, side: THREE.DoubleSide })
+  );
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = 0.02;
+  g.add(ring);
+  g.userData.warningRing = ring; // store ref for pulsing
+}
+
+function mkRock() {
+  const g = new THREE.Group();
+  // Larger, more prominent rock cluster
+  for (let i = 0; i < 3; i++) {
+    const h = 0.4 + Math.random() * 0.3;
+    const r = 0.3 + Math.random() * 0.2;
+    const m = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), M.rock);
+    m.position.set((i - 1) * 0.35, h * 0.5, (Math.random() - 0.5) * 0.3);
+    m.rotation.set(Math.random() * 2, Math.random() * 3, Math.random());
+    m.castShadow = true; g.add(m);
+  }
+  addWarningRing(g, 0xff6600);
+  g.userData.ot = 'ground'; return g;
+}
+
+function mkCactus() {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.28, 1.7, 7), M.cactus);
+  body.position.y = 0.85; body.castShadow = true; g.add(body);
+  const a1 = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.13, 0.65, 5), M.cactus);
+  a1.position.set(0.4, 0.85, 0); a1.rotation.z = -Math.PI / 3; g.add(a1);
+  const a2 = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.13, 0.6, 5), M.cactus);
+  a2.position.set(-0.32, 1.0, 0); a2.rotation.z = Math.PI / 3.5; g.add(a2);
+  addWarningRing(g, 0xff6600);
+  g.userData.ot = 'ground'; return g;
+}
+
+function mkSnake() {
+  const g = new THREE.Group();
+  // Bigger, more colorful snake — bright green/yellow so it stands out on brown trail
+  const snakeMat  = new THREE.MeshLambertMaterial({ color: 0x44cc22 });
+  const snakeAcct = new THREE.MeshLambertMaterial({ color: 0xffdd00 });
+  const headMat   = new THREE.MeshLambertMaterial({ color: 0x228800 });
+  for (let i = 0; i < 7; i++) {
+    const t = i / 7;
+    const r = 0.18 - t * 0.04;
+    const s = new THREE.Mesh(new THREE.SphereGeometry(r, 7, 6), i % 2 ? snakeMat : snakeAcct);
+    const a = t * Math.PI * 2.2, rad = 0.32 - t * 0.06;
+    s.position.set(Math.cos(a) * rad, 0.18, Math.sin(a) * rad);
+    s.castShadow = true; g.add(s);
+  }
+  const hg = new THREE.SphereGeometry(0.22, 7, 6);
+  const hd = new THREE.Mesh(hg, headMat);
+  hd.position.set(0.48, 0.28, 0); g.add(hd);
+  const tong = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.03, 0.03), new THREE.MeshBasicMaterial({ color: 0xff2222 }));
+  tong.position.set(0.72, 0.28, 0); g.add(tong);
+  for (const zp of [0.1, -0.1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.06, 5, 4), new THREE.MeshBasicMaterial({ color: 0xffff00 }));
+    eye.position.set(0.44, 0.36, zp); g.add(eye);
+  }
+  addWarningRing(g, 0x44ff44);
+  g.userData.ot = 'low'; return g;
+}
+
+function mkScorpion() {
+  const g = new THREE.Group();
+  // Bigger, bright orange scorpion — impossible to miss
+  const mat  = new THREE.MeshLambertMaterial({ color: 0xff6600 });
+  const matH = new THREE.MeshLambertMaterial({ color: 0xff9900 });
+  const matS = new THREE.MeshLambertMaterial({ color: 0xff2200 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.25, 0.7), mat);
+  body.position.y = 0.18; body.castShadow = true; g.add(body);
+  const hd = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.22, 0.38), matH);
+  hd.position.set(0, 0.18, 0.52); g.add(hd);
+  // Claws
+  for (const s of [-1, 1]) {
+    const p = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.14, 0.16), matH);
+    p.position.set(s * 0.38, 0.18, 0.68); p.rotation.y = -s * 0.4; g.add(p);
+    for (let i = 0; i < 3; i++) {
+      const l = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.06, 0.06), mat);
+      l.position.set(s * 0.46, 0.1, -0.1 + i * 0.24); l.rotation.z = s * 0.3; g.add(l);
+    }
+  }
+  // Tail segments arching up
+  for (let i = 0; i < 4; i++) {
+    const ts = new THREE.Mesh(new THREE.SphereGeometry(0.14 - i * 0.02, 6, 5), mat);
+    ts.position.set(0, 0.18 + Math.sin((i / 3) * Math.PI * 0.7) * 0.6 + 0.1, -0.38 - i * 0.2);
+    g.add(ts);
+  }
+  const sting = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.28, 5), matS);
+  sting.position.set(0, 1.0, -1.2); sting.rotation.x = -Math.PI / 3; g.add(sting);
+  addWarningRing(g, 0xff8800);
+  g.userData.ot = 'low'; return g;
+}
+
+function mkBranch() {
+  const g = new THREE.Group();
+  const log = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, TRAIL_W * 1.3, 7), M.branch);
+  log.rotation.z = Math.PI / 2; log.position.y = 1.52; log.castShadow = true; g.add(log);
+  for (let i = 0; i < 6; i++) {
+    const lf = new THREE.Mesh(new THREE.SphereGeometry(0.28 + Math.random() * 0.12, 5, 4), M.leaf);
+    lf.position.set((i - 2.5) * 0.65, 1.48, (Math.random() - 0.5) * 0.3);
+    lf.scale.set(1, 0.65, 1); g.add(lf);
+  }
+  for (const s of [-1, 1]) {
+    const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 4.5, 6), M.trunk);
+    tr.position.set(s * (TRAIL_W / 2 + 0.52), 2.25, 0); tr.castShadow = true; g.add(tr);
+    const cr = new THREE.Mesh(new THREE.SphereGeometry(0.85, 6, 5), M.leafDk);
+    cr.position.set(s * (TRAIL_W / 2 + 0.52), 4.7, 0); g.add(cr);
+  }
+  g.userData.ot = 'branch'; return g;
+}
+
+function mkCookie() {
+  const g = new THREE.Group();
+  const d = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.1, 12), M.cookie);
+  d.position.y = 0; g.add(d);
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2;
+    const c = new THREE.Mesh(new THREE.SphereGeometry(0.045, 4, 3), M.chip);
+    c.position.set(Math.cos(a) * 0.13, 0.06, Math.sin(a) * 0.13); g.add(c);
+  }
+  g.add(new THREE.Mesh(new THREE.SphereGeometry(0.42, 8, 6), M.glowY));
+  return g;
+}
+
+function mkSandwich() {
+  const g = new THREE.Group();
+  const b = new THREE.BoxGeometry(0.44, 0.09, 0.32);
+  const b1 = new THREE.Mesh(b, M.bread);   b1.position.y = -0.12; g.add(b1);
+  const fl = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.12, 0.3), M.lettuce); fl.position.y = 0; g.add(fl);
+  const mt = new THREE.Mesh(new THREE.BoxGeometry(0.41, 0.09, 0.29), M.meat); mt.position.y = 0.11; g.add(mt);
+  const b2 = new THREE.Mesh(b, M.bread);   b2.position.y = 0.21; g.add(b2);
+  g.add(new THREE.Mesh(new THREE.SphereGeometry(0.45, 8, 6), M.glowY));
+  return g;
+}
+
+function mkGel() {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.44, 0.1), M.gelBody); body.position.y = 0; g.add(body);
+  const cap  = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.1, 6), M.gelCap); cap.position.y = 0.27; g.add(cap);
+  g.add(new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 6), M.glowY));
+  return g;
+}
+
+function mkBar() {
+  const g = new THREE.Group();
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.14, 0.24), M.barBody); bar.position.y = 0; g.add(bar);
+  for (const zo of [-0.12, 0.12]) {
+    const l = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.15, 0.02), M.barStripe);
+    l.position.set(0, 0, zo); g.add(l);
+  }
+  g.add(new THREE.Mesh(new THREE.SphereGeometry(0.42, 8, 6), M.glowY));
+  return g;
+}
+
+function mkBeer() {
+  const g = new THREE.Group();
+  const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.15, 0.5, 10), M.beerGlass);
+  mug.position.y = 0; g.add(mug);
+  const foam = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.19, 0.14, 10), M.beerFoam);
+  foam.position.y = 0.32; g.add(foam);
+  const hGeo = new THREE.TorusGeometry(0.1, 0.03, 6, 8, Math.PI);
+  const handle = new THREE.Mesh(hGeo, M.beerGlass);
+  handle.position.set(0.24, 0, 0); handle.rotation.y = Math.PI / 2; handle.rotation.z = Math.PI / 2;
+  g.add(handle);
+  g.add(new THREE.Mesh(new THREE.SphereGeometry(0.44, 8, 6), M.glowG));
+  g.userData.isBeer = true;
+  return g;
+}
+
+// ─── Fork mesh builder ────────────────────────────────────────────────────────
+// Right-angle T-junction: trail dead-ends into a wall of trees.
+// Two 90° exit paths peel off left and right.
+function buildForkMesh() {
+  const g  = new THREE.Group();
+  const hw = TRAIL_W / 2;
+  const exitLen = 20; // how far each side exit extends
+
+  // Approach dirt (straight segment leading up to the wall)
+  const approach = new THREE.Mesh(new THREE.BoxGeometry(TRAIL_W, 0.18, 10), M.dirt);
+  approach.position.set(0, -0.09, 5);
+  g.add(approach);
+  for (const s of [-1, 1]) {
+    const e = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, 10), M.dirtEdge);
+    e.position.set(s * (hw + 0.11), -0.07, 5);
+    g.add(e);
+  }
+
+  // Left exit: a full-width trail segment angled exactly 90° left
+  const leftExit = new THREE.Group();
+  const lDirt = new THREE.Mesh(new THREE.BoxGeometry(TRAIL_W, 0.18, exitLen), M.dirt);
+  lDirt.position.set(0, -0.09, -exitLen / 2);
+  leftExit.add(lDirt);
+  for (const s of [-1, 1]) {
+    const e = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, exitLen), M.dirtEdge);
+    e.position.set(s * (hw + 0.11), -0.07, -exitLen / 2);
+    leftExit.add(e);
+  }
+  leftExit.rotation.y = Math.PI / 2;  // 90° left
+  leftExit.position.set(-exitLen * 0.1, 0, 0);
+  g.add(leftExit);
+
+  // Right exit: 90° right
+  const rightExit = new THREE.Group();
+  const rDirt = new THREE.Mesh(new THREE.BoxGeometry(TRAIL_W, 0.18, exitLen), M.dirt);
+  rDirt.position.set(0, -0.09, -exitLen / 2);
+  rightExit.add(rDirt);
+  for (const s of [-1, 1]) {
+    const e = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, exitLen), M.dirtEdge);
+    e.position.set(s * (hw + 0.11), -0.07, -exitLen / 2);
+    rightExit.add(e);
+  }
+  rightExit.rotation.y = -Math.PI / 2; // 90° right
+  rightExit.position.set(exitLen * 0.1, 0, 0);
+  g.add(rightExit);
+
+  // Dead-end wall: dense wall of trees across the trail ahead
+  const wallZ = -2.5;
+  for (let i = 0; i < 5; i++) {
+    const trunkH = 3.5 + Math.random() * 2.5;
+    const xPos   = (i / 4 - 0.5) * (TRAIL_W + 1.2);
+    const trunk  = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.32, trunkH, 7), M.trunk);
+    trunk.position.set(xPos, trunkH / 2, wallZ - i * 0.3);
+    trunk.castShadow = true;
+    g.add(trunk);
+    const leafR = 1.2 + Math.random() * 0.6;
+    const leaf  = new THREE.Mesh(new THREE.ConeGeometry(leafR, leafR * 1.4, 7), i % 2 ? M.leafDk : M.leaf);
+    leaf.position.set(xPos, trunkH * 0.72, wallZ - i * 0.3);
+    leaf.castShadow = true;
+    g.add(leaf);
+  }
+
+  // Ground arrow signs: big L-shaped markers on the dirt showing left & right
+  const arrowMat = new THREE.MeshBasicMaterial({ color: 0xff7820, side: THREE.DoubleSide, transparent: true, opacity: 1 });
+  // Left arrow (horizontal bar + vertical stem)
+  const arrowLH = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.28), arrowMat.clone());
+  arrowLH.rotation.x = -Math.PI / 2;
+  arrowLH.position.set(-hw * 0.5, 0.13, 1.5);
+  g.add(arrowLH);
+  g.userData.arrowL = arrowLH;
+
+  const arrowRH = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.28), arrowMat.clone());
+  arrowRH.rotation.x = -Math.PI / 2;
+  arrowRH.position.set(hw * 0.5, 0.13, 1.5);
+  g.add(arrowRH);
+  g.userData.arrowR = arrowRH;
+
+  return g;
+}
+
+// ─── Fork state ───────────────────────────────────────────────────────────────
+const forkState = {
+  active:    false,
+  worldZ:    0,
+  mesh:      null,
+  resolved:  false,
+  direction: null,
+};
+let nextForkScrollZ = 500;
+let forkWarned      = false;
+
+// Turn flip animation state
+const turnFlip = {
+  active:    false,
+  dir:       0,      // +1 = right, -1 = left
+  progress:  0,      // 0→1
+  duration:  0.32,
+};
+
+function forkInterval() {
+  return Math.max(400, 1200 - distance * 3000);
+}
+
+// ─── Active objects ────────────────────────────────────────────────────────────
+// Objects spawn at z = -SPAWN_DIST (ahead of player) and move toward z = 0.
+// In our -Z forward convention, decreasing (more negative) Z = further ahead.
+// tickObjects moves position.z += speed*dt each frame (toward player at z=0).
+const objects = [];
+
+const OBS_POOL  = [mkRock, mkCactus, mkSnake, mkScorpion, mkBranch];
+const OBS_W     = [0.30,   0.22,    0.18,    0.14,       0.16];
+const FOOD_POOL  = [mkCookie, mkSandwich, mkGel, mkBar];
+const FOOD_LABEL = ['Cookie +50', 'Sandwich +100', 'Gel +75', 'Bar +60'];
+const FOOD_PTS   = [50, 100, 75, 60];
+
+function pickObs() {
+  let r = Math.random(), acc = 0;
+  for (let i = 0; i < OBS_W.length; i++) { acc += OBS_W[i]; if (r < acc) return OBS_POOL[i](); }
+  return OBS_POOL[0]();
+}
+
+function spawnOne(isFood) {
+  let mesh, ot = 'ground', lbl = null, pts = 0, isBeer = false;
+
+  if (isFood) {
+    if (Math.random() < 0.07 && lives < 3) {
+      mesh = mkBeer(); isBeer = true; lbl = 'BEER! +LIFE';
+    } else {
+      const i = Math.floor(Math.random() * FOOD_POOL.length);
+      mesh = FOOD_POOL[i](); lbl = FOOD_LABEL[i]; pts = FOOD_PTS[i];
+    }
+  } else {
+    mesh = pickObs();
+    ot = mesh.userData.ot || 'ground';
+  }
+
+  // Branches always spawn centered (they span full trail width)
+  // Other obstacles use random lanes
+  const lx = (ot === 'branch') ? 0 : LANE_X[Math.floor(Math.random() * 3)];
+  const baseY = isFood ? 0.8 : 0;
+  mesh.position.set(lx, baseY, -SPAWN_DIST);
+  scene.add(mesh);
+  objects.push({ mesh, isFood, lbl, pts, isBeer, ot, collected: false, hit: false });
+}
+
+// ─── Particles ────────────────────────────────────────────────────────────────
+const parts = [];
+for (let i = 0; i < 80; i++) {
+  const m = new THREE.Mesh(
+    new THREE.SphereGeometry(0.07, 4, 3),
+    new THREE.MeshBasicMaterial({ color: 0xffcc44 })
+  );
+  m.visible = false; scene.add(m);
+  parts.push({ m, on: false, vx: 0, vy: 0, vz: 0, life: 0, max: 1 });
+}
+
+function emit(x, y, z, col, n) {
+  let k = 0;
+  for (const p of parts) {
+    if (p.on || k >= n) continue;
+    p.on = true; p.m.visible = true;
+    p.m.material.color.setHex(col);
+    p.m.position.set(x, y, z);
+    const sp = 1.5 + Math.random() * 3;
+    const ya = Math.random() * Math.PI * 2, pi = (Math.random() - 0.3) * Math.PI;
+    p.vx = Math.cos(ya) * Math.cos(pi) * sp;
+    p.vy = Math.sin(pi) * sp + 1.5;
+    p.vz = Math.sin(ya) * Math.cos(pi) * sp;
+    p.max = 0.6 + Math.random() * 0.5; p.life = 1; p.m.scale.setScalar(1); k++;
+  }
+}
+
+function tickParts(dt) {
+  for (const p of parts) {
+    if (!p.on) continue;
+    p.life -= dt / p.max;
+    if (p.life <= 0) { p.on = false; p.m.visible = false; continue; }
+    p.vy -= 14 * dt;
+    p.m.position.x += p.vx * dt;
+    p.m.position.y += p.vy * dt;
+    p.m.position.z += p.vz * dt;
+    p.m.scale.setScalar(Math.max(0, p.life));
+  }
+}
+
+// ─── Physics ──────────────────────────────────────────────────────────────────
+function tickPhysics(dt) {
+  if (leftHeld())  player.xVel -= player.STEER * dt;
+  if (rightHeld()) player.xVel += player.STEER * dt;
+  player.xVel -= player.xVel * player.FRIC * dt;
+  player.x += player.xVel * dt;
+
+  // Dynamic wall limit tracks current trail width
+  const wallEdge = trailHalfW - 0.15;
+  if (player.x > wallEdge) {
+    player.x = wallEdge;
+    if (player.xVel > 0.5) {
+      player.xVel = -player.xVel * 0.4; // bounce
+      wallDamage();
+    } else {
+      player.xVel = 0;
+    }
+  } else if (player.x < -wallEdge) {
+    player.x = -wallEdge;
+    if (player.xVel < -0.5) {
+      player.xVel = -player.xVel * 0.4; // bounce
+      wallDamage();
+    } else {
+      player.xVel = 0;
+    }
+  }
+
+  if (jumpKey() && !player.jumping) {
+    player.jumping = true; player.jumpVel = player.JUMP_VEL;
+    player.sliding = false; player.slideTimer = 0;
+  }
+  if (duckKey() && !player.jumping) { player.sliding = true; player.slideTimer = player.SLIDE_DUR; }
+
+  if (player.jumping) {
+    player.jumpVel += player.GRAVITY * dt;
+    player.jumpY   += player.jumpVel * dt;
+    if (player.jumpY <= 0) { player.jumpY = 0; player.jumpVel = 0; player.jumping = false; }
+  }
+  if (player.sliding) {
+    player.slideTimer -= dt;
+    if (player.slideTimer <= 0) { player.sliding = false; player.slideTimer = 0; }
+  }
+}
+
+// ─── Player mesh update ───────────────────────────────────────────────────────
+function tickPlayer(dt) {
+  playerGroup.position.x = player.x;
+  playerGroup.position.y = player.jumping ? player.jumpY : (player.sliding ? -0.3 : 0);
+  playerGroup.scale.y    = player.sliding ? 0.6 : 1.0;
+
+  const legL = playerGroup.userData.legL;
+  const legR = playerGroup.userData.legR;
+  const armL = playerGroup.userData.armL;
+  const armR = playerGroup.userData.armR;
+  if (!player.sliding && !player.jumping) {
+    player.runCycle += dt * (7 + speed * 0.28);
+    const sw = Math.sin(player.runCycle) * 0.32;
+    legL.rotation.x =  sw; legR.rotation.x = -sw;
+    armL.rotation.x = -sw; armR.rotation.x =  sw;
+  } else {
+    legL.rotation.x = 0; legR.rotation.x = 0;
+    armL.rotation.x = -0.4; armR.rotation.x = -0.4;
+  }
+}
+
+// ─── Camera ───────────────────────────────────────────────────────────────────
+// Camera at (0, camBaseY + hillBob, camBaseZ) looking at (0, lookY, lookFwdZ)
+// In our convention: camBaseZ is POSITIVE (behind player), lookFwdZ is NEGATIVE (ahead)
+const camBaseY = 5.0;
+const camBaseZ = 9.0;    // behind player
+const lookFwdZ = -5.0;   // looking ahead
+const lookY    = 0.5;
+let camX = 0, camTx = 0;
+
+function tickCamera(dt) {
+  const bob  = Math.max(-1.5, Math.min(1.5, hillOffset(scroll)));
+  const slp  = hillSlope(scroll);
+  const desX = player.x * 0.4;
+  camX  += (desX - camX)  * Math.min(1, dt * 6);
+  camTx += (desX - camTx) * Math.min(1, dt * 6);
+
+  camera.position.set(camX, camBaseY + bob, camBaseZ);
+  camera.lookAt(camTx, lookY + bob * 0.25, lookFwdZ);
+  // Apply turn-flip Z roll after lookAt (lookAt resets rotation.z)
+  if (turnFlip.active) {
+    const t    = turnFlip.progress;
+    const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    camera.rotation.z = turnFlip.dir * Math.PI * 0.6 * Math.sin(ease * Math.PI);
+  } else {
+    camera.rotation.z = 0;
+  }
+
+  const el = document.getElementById('hill-indicator');
+  if (slp < -0.006) { el.textContent = '▼ DOWNHILL'; el.className = 'dn'; }
+  else if (slp > 0.006) { el.textContent = '▲ UPHILL'; el.className = 'up'; }
+  else { el.textContent = ''; el.className = ''; }
+}
+
+// ─── Speed ────────────────────────────────────────────────────────────────────
+function tickSpeed(dt) {
+  const slp = hillSlope(scroll);
+  const base = BASE_SPEED + distance * 64;
+  const target = base - slp * 16;
+  speed += (Math.max(3, Math.min(26, target)) - speed) * dt * 1.5;
+}
+
+// ─── Object tick ──────────────────────────────────────────────────────────────
+let duckTO = null;
+const warned = new WeakSet();
+
+function tickObjects(dt) {
+  const dz = speed * dt;
+  const t = Date.now() * 0.004;
+  for (let i = objects.length - 1; i >= 0; i--) {
+    const o = objects[i];
+    o.mesh.position.z += dz; // move from -SPAWN_DIST toward 0 (player) and beyond
+
+    if (o.isFood && !o.collected) {
+      o.mesh.position.y = 0.8 + Math.sin(t + i * 1.3) * 0.12;
+      o.mesh.rotation.y += dt * 1.8;
+    }
+
+    // Pulse the warning ring on obstacles as they approach
+    if (!o.isFood && o.mesh.userData.warningRing) {
+      const dist = -o.mesh.position.z; // positive = ahead
+      if (dist > 0 && dist < 30) {
+        const pulse = 0.5 + 0.5 * Math.sin(t * 4 + i);
+        const scale = 1.0 + pulse * 0.25;
+        o.mesh.userData.warningRing.scale.setScalar(scale);
+        o.mesh.userData.warningRing.material.opacity = 0.4 + pulse * 0.5;
+      }
+    }
+
+    // Branch warning when approaching
+    if (!o.hit && !o.collected && !warned.has(o) && o.ot === 'branch') {
+      const sz = o.mesh.position.z;
+      if (sz > -20 && sz < -5) {
+        warned.add(o);
+        const el = document.getElementById('duck-hint');
+        el.style.opacity = '1';
+        clearTimeout(duckTO);
+        duckTO = setTimeout(() => { el.style.opacity = '0'; }, 2000);
+      }
+    }
+
+    // Remove resolved objects immediately; unresolved ones when they scroll past
+    const pastPlayer = o.mesh.position.z > 4;
+    if (pastPlayer || o.collected || o.hit) {
+      scene.remove(o.mesh);
+      objects.splice(i, 1);
+    }
+  }
+
+  spawnTimer -= dt;
+  if (spawnTimer <= 0) {
+    const isFood = Math.random() < 0.42;
+    spawnOne(isFood);
+    // Occasionally spawn a bonus food item, staggered so it doesn't overlap
+    if (isFood && Math.random() < 0.3) {
+      const lx2 = LANE_X[Math.floor(Math.random() * 3)];
+      const i2 = Math.floor(Math.random() * FOOD_POOL.length);
+      const mesh2 = FOOD_POOL[i2]();
+      mesh2.position.set(lx2, 0.8, -SPAWN_DIST - 10);
+      scene.add(mesh2);
+      objects.push({ mesh: mesh2, isFood: true, lbl: FOOD_LABEL[i2], pts: FOOD_PTS[i2],
+                     isBeer: false, ot: 'ground', collected: false, hit: false });
+    }
+    spawnTimer = Math.max(0.7, 2.5 - distance * 4.8) * (0.8 + Math.random() * 0.4);
+  }
+}
+
+// ─── Collision ────────────────────────────────────────────────────────────────
+function tickCollisions() {
+  if (state !== STATE.PLAYING) return;
+  if (hitTimer > 0 || startGrace > 0) return;
+
+  for (let i = 0; i < objects.length; i++) {
+    const o = objects[i];
+    if (o.collected || o.hit) continue; // already resolved
+
+    const sz = o.mesh.position.z;
+    // Only check when object is in the player's Z plane (±1 unit)
+    if (sz < -1.0 || sz > 0.8) continue;
+
+    const isBranch = o.ot === 'branch';
+    const dx = Math.abs(o.mesh.position.x - player.x);
+
+    if (o.isFood) {
+      // Collect food if close enough laterally (branches span full width)
+      if (isBranch || dx < 0.85) {
+        o.collected = true;
+        o.mesh.visible = false;
+        if (o.isBeer) {
+          if (lives < 3) { lives++; updateHearts(); }
+          emit(player.x, 1.0, 0, 0xffdd22, 18);
+          flash('BEER! +LIFE');
+          sfxBeer();
+        } else {
+          score += o.pts;
+          emit(player.x, 1.0, 0, 0xffcc44, 14);
+          flash(o.lbl);
+          sfxPickup();
+        }
+      }
+    } else {
+      // Obstacle — check lateral proximity first (branches always hit regardless of X)
+      if (!isBranch && dx > 0.72) continue;
+
+      // Check if player action makes them safe
+      let safe = false;
+      if (o.ot === 'low')         safe = player.jumpY > 0.4;   // snake/scorpion: jump over
+      else if (o.ot === 'branch') safe = player.sliding;         // branch: duck under
+      else                        safe = player.jumpY > 0.45;   // rock/cactus: jump over
+
+      if (!safe) {
+        o.hit = true;
+        o.mesh.visible = false;
+        const hitMsg = o.ot === 'branch' ? 'BRANCH! Duck next time'
+                     : o.ot === 'low'    ? 'CRITTER! Jump over it'
+                     :                     'OBSTACLE! Jump over it';
+        damage(hitMsg);
+        return;
+      }
+    }
+  }
+
+}
+
+function wallDamage() {
+  if (hitTimer > 0 || startGrace > 0 || lives <= 0) return;
+  damage('Stay on the trail!');
+}
+
+function damage(msg) {
+  if (lives <= 0) return;
+  lives--; hitTimer = HIT_GRACE;
+  if (msg) flash(msg);
+  emit(player.x, 1.0, 0, 0xff2222, 22);
+  emit(player.x, 1.0, 0, 0xff8800, 10);
+  const hf = document.getElementById('hit-flash');
+  hf.style.background = 'rgba(255,30,30,0.45)';
+  setTimeout(() => { hf.style.background = 'rgba(255,30,30,0)'; }, 250);
+  updateHearts();
+  if (lives <= 0) {
+    sfxGameOver();
+    stopMusic();
+    state = STATE.GAMEOVER;
+    if (score > hiScore) hiScore = score;
+    showGameOver();
+  } else {
+    sfxDamage();
+    state = STATE.PLAYING;
+  }
+}
+
+// ─── HUD ──────────────────────────────────────────────────────────────────────
+let flashTO = null;
+function flash(lbl) {
+  const el = document.getElementById('pickup-flash');
+  el.textContent = lbl; el.style.opacity = '1';
+  clearTimeout(flashTO);
+  flashTO = setTimeout(() => { el.style.opacity = '0'; }, 1100);
+}
+function updateHearts() {
+  for (let i = 0; i < 3; i++) {
+    document.getElementById('h' + i).className = 'heart' + (i < lives ? '' : ' empty');
+  }
+}
+function updateHUD() {
+  document.getElementById('score-val').textContent = Math.floor(score);
+  document.getElementById('dist-val').textContent  = distance.toFixed(1) + 'mi';
+  document.getElementById('speed-bar-fill').style.width =
+    Math.min(100, ((speed - 3) / 23) * 100) + '%';
+}
+
+// ─── Overlay ──────────────────────────────────────────────────────────────────
+const OL = document.getElementById('overlay');
+const isTouchDevice = () => ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+const startPromptText = () => isTouchDevice() ? 'Tap to Run' : 'Press Any Key';
+const lazReadyText = () => isTouchDevice()
+  ? '<span style="font-size:11px;color:rgba(255,255,255,0.4);">Tap when ready</span>'
+  : '<span style="font-size:11px;color:rgba(255,255,255,0.4);">Press any key when ready</span>';
+function showStart() {
+  OL.classList.remove('hidden');
+  document.getElementById('tl1').textContent = 'TRAIL';
+  document.getElementById('tl1').className   = 'ol trail';
+  document.getElementById('tl2').textContent = 'BLAZE';
+  document.getElementById('tl2').className   = 'ol blaze';
+  document.getElementById('go-stats').style.display = 'none';
+  document.getElementById('start-prompt').textContent = startPromptText();
+  document.getElementById('start-prompt').style.opacity = '1';
+  document.getElementById('laz-text').innerHTML =
+    'Laz is standing trailside with an unlit cigarette.<br>' + lazReadyText();
+  lazLit       = false;
+  lazPreTimer  = -1;
+  lazIntroTimer = 0;
+  lazGroup.visible = true;
+  lazGroup.userData.ember.material.color.setHex(0x331100);
+  if (lazGroup.userData.flame)     lazGroup.userData.flame.visible = false;
+  if (lazGroup.userData.flameGlow) lazGroup.userData.flameGlow.visible = false;
+  const cd = document.getElementById('laz-countdown');
+  if (cd) { cd.style.opacity = '0'; cd.textContent = ''; cd.style.color = '#fff'; }
+}
+function showGameOver() {
+  OL.classList.remove('hidden');
+  document.getElementById('tl1').textContent = 'GAME';
+  document.getElementById('tl1').className   = 'ol goa';
+  document.getElementById('tl2').textContent = 'OVER';
+  document.getElementById('tl2').className   = 'ol gob';
+  document.getElementById('go-score').textContent = Math.floor(score);
+  document.getElementById('go-dist').textContent  = distance.toFixed(1);
+  document.getElementById('go-best').textContent  = Math.floor(hiScore);
+  document.getElementById('go-stats').style.display = 'block';
+  document.getElementById('start-prompt').textContent = 'Refresh to Run Again';
+}
+
+// ─── Fork tick ────────────────────────────────────────────────────────────────
+const FORK_SPAWN_AHEAD = 50;
+const FORK_WARN_DIST   = 30;   // show HUD this many scroll-units before junction
+const FORK_ACCEPT_DIST = 28;   // accept A/D from here out
+const FORK_HIT_DIST    = 3.5;  // hit the wall if still going straight at this dist
+const FORK_PAST_DIST   = 10;
+
+function forkIndicatorEl() { return document.getElementById('fork-indicator'); }
+
+function showForkHUD() {
+  const el = forkIndicatorEl();
+  el.textContent = '← A   TURN   D →';
+  el.className = 'tee';
+  el.style.opacity = '1';
+}
+
+function hideForkHUD() {
+  const el = forkIndicatorEl();
+  el.style.opacity = '0';
+  el.className = '';
+}
+
+function spawnFork() {
+  const mesh   = buildForkMesh();
+  const worldZ = scroll + FORK_SPAWN_AHEAD;
+  mesh.userData.worldZ = worldZ;
+  scene.add(mesh);
+  forkState.active    = true;
+  forkState.worldZ    = worldZ;
+  forkState.mesh      = mesh;
+  forkState.resolved  = false;
+  forkState.direction = null;
+  forkWarned = false;
+}
+
+function clearFork() {
+  if (forkState.mesh) { scene.remove(forkState.mesh); forkState.mesh = null; }
+  forkState.active    = false;
+  forkState.resolved  = false;
+  forkState.direction = null;
+  hideForkHUD();
+  forkWarned = false;
+}
+
+function startTurnFlip(dir) {
+  // dir: 'left' = -1, 'right' = +1
+  turnFlip.active   = true;
+  turnFlip.dir      = dir === 'left' ? -1 : 1;
+  turnFlip.progress = 0;
+  // Flash the screen white briefly
+  const hf = document.getElementById('hit-flash');
+  hf.style.background = 'rgba(255,255,255,0.75)';
+  setTimeout(() => { hf.style.background = 'rgba(255,30,30,0)'; }, 220);
+  // SFX: sharp whoosh
+  sfxTurnWhoosh();
+}
+
+function sfxTurnWhoosh() {
+  resumeAC();
+  const now = AC.currentTime;
+  const osc  = AC.createOscillator();
+  const gain = AC.createGain();
+  osc.connect(gain); gain.connect(AC.destination);
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(600, now);
+  osc.frequency.exponentialRampToValueAtTime(80, now + 0.25);
+  gain.gain.setValueAtTime(0.22, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+  osc.start(now); osc.stop(now + 0.3);
+  // Noise swoosh
+  const buf  = AC.createBuffer(1, Math.floor(AC.sampleRate * 0.2), AC.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1);
+  const src  = AC.createBufferSource();
+  const filt = AC.createBiquadFilter();
+  const ng   = AC.createGain();
+  src.buffer = buf; filt.type = 'bandpass';
+  filt.frequency.value = 1200; filt.Q.value = 0.6;
+  src.connect(filt); filt.connect(ng); ng.connect(AC.destination);
+  ng.gain.setValueAtTime(0.18, now);
+  ng.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+  src.start(now);
+}
+
+function tickTurnFlip(dt) {
+  if (!turnFlip.active) return;
+  turnFlip.progress += dt / turnFlip.duration;
+  if (turnFlip.progress >= 1) {
+    turnFlip.progress = 1;
+    turnFlip.active   = false;
+  }
+}
+
+function tickFork(dt) {
+  // Consume A/D input first
+  const pressedLeft  = forkLeft();
+  const pressedRight = forkRight();
+
+  // Schedule next fork
+  if (!forkState.active && scroll >= nextForkScrollZ) {
+    spawnFork();
+    nextForkScrollZ = scroll + forkInterval();
+  }
+
+  // A/D with no active fork = wrong move
+  if (!forkState.active && (pressedLeft || pressedRight)) {
+    damage('WATCH THE TRAIL!');
+    return;
+  }
+
+  tickTurnFlip(dt);
+
+  if (!forkState.active) return;
+
+  const distToFork = forkState.worldZ - scroll;
+  forkState.mesh.position.set(0, 0, -distToFork);
+
+  // Pulse arrow indicators
+  const t = Date.now() * 0.004;
+  for (const key of ['arrowL', 'arrowR']) {
+    const arrow = forkState.mesh.userData[key];
+    if (arrow) arrow.material.opacity = 0.55 + 0.45 * Math.sin(t * 5);
+  }
+
+  // Show HUD on approach
+  if (!forkWarned && distToFork < FORK_WARN_DIST) {
+    forkWarned = true;
+    showForkHUD();
+  }
+
+  if (!forkState.resolved) {
+    const inWindow = distToFork < FORK_ACCEPT_DIST;
+
+    if (inWindow && (pressedLeft || pressedRight)) {
+      const dir = pressedLeft ? 'left' : 'right';
+      forkState.resolved  = true;
+      forkState.direction = dir;
+      hideForkHUD();
+      startTurnFlip(dir);
+      // Reset player to center after the turn — they're now on a fresh straight
+      player.x    = 0;
+      player.xVel = 0;
+      // Clear fork after a moment once player has passed
+    } else if (distToFork < -FORK_HIT_DIST && !forkState.resolved) {
+      // Ran straight into the wall
+      clearFork();
+      damage('MISSED THE TURN!');
+      return;
+    }
+  }
+
+  if (distToFork < -FORK_PAST_DIST) {
+    clearFork();
+  }
+}
+
+// ─── Reset ────────────────────────────────────────────────────────────────────
+function reset() {
+  score = 0; lives = 3; distance = 0; scroll = 0;
+  speed = BASE_SPEED; hitTimer = 0; startGrace = START_GRACE;
+  spawnTimer = START_GRACE + 0.8;
+  trailHalfW = MAX_TRAIL_HALF; targetHalfW = MAX_TRAIL_HALF; trailWidthTimer = 4.0;
+  player.x = 0; player.xVel = 0;
+  player.jumping = false; player.jumpVel = 0; player.jumpY = 0;
+  player.sliding = false; player.slideTimer = 0; player.runCycle = 0;
+
+  for (const o of objects) scene.remove(o.mesh);
+  objects.length = 0;
+
+  // Clear any active fork
+  if (forkState.mesh) scene.remove(forkState.mesh);
+  forkState.active = false; forkState.worldZ = 0;
+  forkState.mesh = null; forkState.resolved = false; forkState.direction = null;
+  nextForkScrollZ = 500;
+  forkWarned = false;
+  hideForkHUD();
+  // Reset turn flip and camera roll
+  turnFlip.active = false; turnFlip.progress = 0;
+  camera.rotation.z = 0;
+
+  // Reset all segment worldZ values from scratch
+  for (let i = 0; i < SEG_COUNT; i++) {
+    segs[i].userData.worldZ = i * SEG_LEN;
+  }
+
+  // Re-spread all forest pools and re-assign fixed xOff values
+  for (let i = 0; i < nearTrees.length; i++) {
+    nearTrees[i].userData.worldZ = (i / nearTrees.length) * SEG_COUNT * SEG_LEN;
+    nearTrees[i].userData.side   = i % 2 ? 1 : -1;
+    assignNearXOff(nearTrees[i]);
+  }
+  for (let i = 0; i < bushes.length; i++) {
+    bushes[i].userData.worldZ = (i / bushes.length) * SEG_COUNT * SEG_LEN;
+    bushes[i].userData.side   = i % 2 ? 1 : -1;
+    assignBushXOff(bushes[i]);
+  }
+  for (let i = 0; i < trees.length; i++) {
+    trees[i].userData.worldZ = (i / trees.length) * SEG_COUNT * SEG_LEN;
+    trees[i].userData.side   = i % 2 ? 1 : -1;
+    assignFarXOff(trees[i]);
+  }
+
+  updateHearts();
+  paused = false;
+  document.getElementById('pause-overlay').classList.add('hidden');
+}
+
+// ─── Main loop ────────────────────────────────────────────────────────────────
+let lastT = performance.now();
+showStart();
+
+function loop(ts) {
+  requestAnimationFrame(loop);
+  const dt = Math.min((ts - lastT) / 1000, 0.05);
+  lastT = ts;
+
+  if (state === STATE.START) {
+    // Phase 0: show menu, wait for keypress
+    if (lazPreTimer < 0 && anyKey()) {
+      clearJP();
+      // Hide menu overlay immediately — let the world show
+      OL.classList.add('hidden');
+      lazPreTimer = LAZ_PRE_DELAY;
+      // Show countdown HUD
+      document.getElementById('laz-countdown').style.opacity = '1';
+    }
+
+    // Phase 1: menu gone, Laz standing there, countdown ticking
+    if (lazPreTimer >= 0 && !lazLit) {
+      lazPreTimer -= dt;
+      const sec = Math.ceil(Math.max(0, lazPreTimer));
+      const el  = document.getElementById('laz-countdown');
+      if (lazPreTimer > 0) {
+        el.textContent = sec > 0 ? sec : '...';
+      } else {
+        // Countdown hit 0 — light the cigarette
+        el.textContent = '🚬';
+        el.style.color = '#ff7820';
+        lightCigarette();
+        lazIntroTimer = LAZ_LIT_DELAY;
+      }
+    }
+
+    // Phase 2: cigarette lit, smoke and glow, then start race
+    if (lazLit) {
+      tickLaz(dt);
+      lazIntroTimer -= dt;
+      if (lazIntroTimer <= 0) {
+        document.getElementById('laz-countdown').style.opacity = '0';
+        hideLaz();
+        reset();
+        state = STATE.PLAYING;
+        startMusic();
+      }
+    }
+
+    placeSegs(0);
+    placeForest(0);
+    tickCamera(dt);
+    renderer.render(scene, camera);
+    return;
+  }
+
+  if (state === STATE.GAMEOVER) {
+    placeSegs(0);
+    placeForest(0);
+    tickCamera(dt);
+    renderer.render(scene, camera);
+    return;
+  }
+
+  const active = state === STATE.PLAYING && !paused;
+  if (active) {
+    const dz = speed * dt;
+    scroll   += dz;
+    distance += dz * 0.00275; // miles — ~10 mi/5 min at base speed
+    score    += dz * 0.4;
+    if (startGrace > 0) startGrace -= dt;
+
+    tickSpeed(dt);
+    tickTrail(dt);
+    tickPhysics(dt);
+
+    if (hitTimer > 0) {
+      hitTimer -= dt;
+      playerGroup.visible = Math.floor(hitTimer / 0.08) % 2 === 0;
+    } else {
+      playerGroup.visible = true;
+    }
+
+    tickPlayer(dt);
+    placeSegs(scroll);
+    placeForest(scroll);
+    tickObjects(dt);
+    tickCollisions();
+    tickFork(dt);
+    tickParts(dt);
+    updateHUD();
+    tickCamera(dt);
+  }
+
+  renderer.render(scene, camera);
+}
+
+// ─── Mobile UI setup ──────────────────────────────────────────────────────────
+(function() {
+  const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+  if (isTouch) {
+    document.getElementById('ctrl').style.display = 'none';
+    document.getElementById('ctrl-touch').style.display = 'grid';
+    document.getElementById('start-prompt').textContent = 'Tap to Run';
+    document.getElementById('pause-sub').textContent = 'Double-tap to Resume';
+  }
+})();
+
+requestAnimationFrame(ts => { lastT = ts; requestAnimationFrame(loop); });
+</script>
+</body>
+</html>
