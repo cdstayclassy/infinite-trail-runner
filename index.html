@@ -1124,10 +1124,9 @@ const forkRight = () => eat('KeyD');
 const anyKey    = () => Object.values(jp).some(Boolean);
 const clearJP   = () => { for (const k in jp) jp[k] = false; };
 
-let tx = 0, ty = 0, touchStartTime = 0, touchDragX = 0, swipeFired = false, touchStartPlayerX = 0;
-const TOUCH_STEER_PX  = 18;  // px offset before steering kicks in
-const TOUCH_SWIPE_PX  = 40;  // px to immediately trigger a fork/turn swipe
-const TOUCH_SWIPE_MS  = 400; // max ms window for a swipe
+let tx = 0, ty = 0, touchStartTime = 0, touchDragX = 0, swipeFired = false, touchStartPlayerX = 0, isTouching = false;
+const TOUCH_SWIPE_PX  = 70;  // px to immediately trigger a fork/turn swipe
+const TOUCH_SWIPE_MS  = 300; // max ms window for a swipe
 
 addEventListener('touchstart', e => {
   tx = e.touches[0].clientX;
@@ -1136,6 +1135,7 @@ addEventListener('touchstart', e => {
   touchDragX = 0;
   swipeFired = false;
   touchStartPlayerX = player.x;
+  isTouching = true;
 }, { passive: true });
 
 addEventListener('touchmove', e => {
@@ -1175,6 +1175,7 @@ addEventListener('touchend', e => {
   }
   touchDragX = 0;
   swipeFired = false;
+  isTouching = false;
 }, { passive: true });
 
 // ─── Object builders ──────────────────────────────────────────────────────────
@@ -1541,8 +1542,8 @@ function tickPhysics(dt) {
   // Dynamic wall limit tracks current trail width
   const wallEdge = trailHalfW - 0.15;
 
-  // Touch drag: map finger offset 1:1 to world X — no velocity smoothing
-  if (Math.abs(touchDragX) > TOUCH_STEER_PX) {
+  // Touch drag: while finger is on screen, map offset directly to world X — no dead zone, no smoothing
+  if (isTouching) {
     const scale = (wallEdge * 2) / (window.innerWidth * 0.80);
     player.x = Math.max(-wallEdge, Math.min(wallEdge, touchStartPlayerX + touchDragX * scale));
     player.xVel = 0;
