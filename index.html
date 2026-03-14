@@ -1149,6 +1149,10 @@ addEventListener('touchmove', e => {
       && Math.abs(dx) > TOUCH_SWIPE_PX && Math.abs(dx) > Math.abs(dy) * 1.5) {
     jp[dx > 0 ? 'KeyD' : 'KeyA'] = true;
     swipeFired = true;
+    // Update reference so steering re-engages from current position after swipe
+    touchStartPlayerX = player.x;
+    touchDragX = 0;
+    tx = e.touches[0].clientX;
   }
 }, { passive: true });
 
@@ -1538,8 +1542,8 @@ function tickPhysics(dt) {
   const wallEdge = trailHalfW - 0.15;
 
   // Touch drag: map finger offset 1:1 to world X — no velocity smoothing
-  if (Math.abs(touchDragX) > TOUCH_STEER_PX && !swipeFired) {
-    const scale = (wallEdge * 2) / (window.innerWidth * 0.55);
+  if (Math.abs(touchDragX) > TOUCH_STEER_PX) {
+    const scale = (wallEdge * 2) / (window.innerWidth * 0.80);
     player.x = Math.max(-wallEdge, Math.min(wallEdge, touchStartPlayerX + touchDragX * scale));
     player.xVel = 0;
   } else {
