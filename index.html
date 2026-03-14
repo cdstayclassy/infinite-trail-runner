@@ -1124,42 +1124,52 @@ const forkRight = () => eat('KeyD');
 const anyKey    = () => Object.values(jp).some(Boolean);
 const clearJP   = () => { for (const k in jp) jp[k] = false; };
 
-let tx = 0, ty = 0, touchStartTime = 0, touchDragX = 0;
+let tx = 0, ty = 0, touchStartTime = 0, touchDragX = 0, swipeFired = false;
 const TOUCH_STEER_PX  = 18;  // px offset before steering kicks in
-const TOUCH_SWIPE_PX  = 55;  // px for a quick fork/turn swipe
-const TOUCH_SWIPE_MS  = 280; // max ms for a swipe to count as intentional
+const TOUCH_SWIPE_PX  = 40;  // px to immediately trigger a fork/turn swipe
+const TOUCH_SWIPE_MS  = 400; // max ms window for a swipe
 
 addEventListener('touchstart', e => {
   tx = e.touches[0].clientX;
   ty = e.touches[0].clientY;
   touchStartTime = performance.now();
   touchDragX = 0;
+  swipeFired = false;
 }, { passive: true });
 
 addEventListener('touchmove', e => {
-  touchDragX = e.touches[0].clientX - tx;
+  const cx = e.touches[0].clientX;
+  const cy = e.touches[0].clientY;
+  const dx = cx - tx, dy = cy - ty;
+  touchDragX = dx;
+
+  // Fire fork/turn swipe immediately once threshold is crossed — no waiting for touchend
+  if (!swipeFired && performance.now() - touchStartTime < TOUCH_SWIPE_MS
+      && Math.abs(dx) > TOUCH_SWIPE_PX && Math.abs(dx) > Math.abs(dy) * 1.5) {
+    jp[dx > 0 ? 'KeyD' : 'KeyA'] = true;
+    swipeFired = true;
+  }
 }, { passive: true });
 
 addEventListener('touchend', e => {
-  if (suppressNextTap) { suppressNextTap = false; touchDragX = 0; return; }
+  if (suppressNextTap) { suppressNextTap = false; touchDragX = 0; swipeFired = false; return; }
 
   const cx = e.changedTouches[0].clientX;
   const cy = e.changedTouches[0].clientY;
   const dx = cx - tx, dy = cy - ty;
-  const elapsed = performance.now() - touchStartTime;
   const adx = Math.abs(dx), ady = Math.abs(dy);
 
-  if (ady > adx && ady > 30) {
-    // Vertical swipe → jump or duck
-    jp[dy < 0 ? 'ArrowUp' : 'ArrowDown'] = true;
-  } else if (elapsed < TOUCH_SWIPE_MS && adx > TOUCH_SWIPE_PX && adx > ady * 1.5) {
-    // Quick horizontal swipe → fork/turn
-    jp[dx > 0 ? 'KeyD' : 'KeyA'] = true;
-  } else if (adx < 20 && ady < 20) {
-    // Tap → jump / start
-    jp['Space'] = true;
+  if (!swipeFired) {
+    if (ady > adx && ady > 30) {
+      // Vertical swipe → jump or duck
+      jp[dy < 0 ? 'ArrowUp' : 'ArrowDown'] = true;
+    } else if (adx < 20 && ady < 20) {
+      // Tap → jump / start
+      jp['Space'] = true;
+    }
   }
   touchDragX = 0;
+  swipeFired = false;
 }, { passive: true });
 
 // ─── Object builders ──────────────────────────────────────────────────────────
@@ -1848,7 +1858,7 @@ function forkIndicatorEl() { return document.getElementById('fork-indicator'); }
 
 function showForkHUD() {
   const el = forkIndicatorEl();
-  el.textContent = '← A   TURN   D →';
+  el.textContent = isTouchDevice() ? '← SWIPE   TURN   SWIPE →' : '← A   TURN   D →';
   el.className = 'tee';
   el.style.opacity = '1';
 }
