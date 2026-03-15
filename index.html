@@ -1067,6 +1067,7 @@ function togglePause() {
   } else {
     resumeMusic();
     pauseEl.classList.add('hidden');
+    clearJP(); // consume any inputs that triggered the unpause so they don't fire in-game
   }
 }
 addEventListener('keydown', e => {
@@ -1074,13 +1075,19 @@ addEventListener('keydown', e => {
 });
 
 // ── Pause on double-tap (mobile) ──────────────────────────────────────────────
-let lastTapTime = 0, suppressNextTap = false;
+let lastTapTime = 0, tapCount = 0, suppressNextTap = false;
 addEventListener('touchstart', e => {
   if (state !== STATE.PLAYING) return;
   const now = performance.now();
-  if (now - lastTapTime < 300) {
-    togglePause();
-    suppressNextTap = true;
+  if (now - lastTapTime < 350) {
+    tapCount++;
+    if (tapCount >= 2) { // 3rd tap of a triple-tap
+      togglePause();
+      suppressNextTap = true;
+      tapCount = 0;
+    }
+  } else {
+    tapCount = 0;
   }
   lastTapTime = now;
 }, { passive: false });
@@ -1475,7 +1482,7 @@ function spawnOne(isFood) {
   let mesh, ot = 'ground', lbl = null, pts = 0, isBeer = false;
 
   if (isFood) {
-    if (Math.random() < 0.07 && lives < 3) {
+    if (Math.random() < 0.20 && lives < 3) {
       mesh = mkBeer(); isBeer = true; lbl = 'BEER! +LIFE';
     } else {
       const i = Math.floor(Math.random() * FOOD_POOL.length);
@@ -1851,7 +1858,7 @@ function showGameOver() {
   document.getElementById('go-dist').textContent  = distance.toFixed(1);
   document.getElementById('go-best').textContent  = Math.floor(hiScore);
   document.getElementById('go-stats').style.display = 'block';
-  document.getElementById('start-prompt').textContent = 'Refresh to Run Again';
+  document.getElementById('start-prompt').textContent = isTouchDevice() ? 'Tap to Run Again' : 'Press Any Key to Run Again';
 }
 
 // ─── Fork tick ────────────────────────────────────────────────────────────────
@@ -2118,6 +2125,7 @@ function loop(ts) {
   }
 
   if (state === STATE.GAMEOVER) {
+    if (anyKey()) { clearJP(); reset(); showStart(); }
     placeSegs(0);
     placeForest(0);
     tickCamera(dt);
