@@ -1831,29 +1831,30 @@ function damage(msg) {
   }
 }
 
-// ─── Leaderboard ──────────────────────────────────────────────────────────────
-const LB_KEY  = 'trailblaze_lb';
+// ─── Leaderboard (Supabase) ───────────────────────────────────────────────────
+const SB_URL  = 'https://biynvwjozxenickblgyl.supabase.co';
+const SB_KEY  = 'sb_publishable_dRbNWXt5Z0-6t0KnbSw-aA_6PGNGnlB';
 const LB_SIZE = 10;
+const SB_HDR  = { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' };
 
-function lbGet() {
-  try { return JSON.parse(localStorage.getItem(LB_KEY) || '[]'); } catch { return []; }
+async function lbFetch() {
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/scores?select=initials,score,dist&order=score.desc&limit=${LB_SIZE}`, { headers: SB_HDR });
+    if (!r.ok) return [];
+    return await r.json();
+  } catch { return []; }
 }
-function lbSave(lb) {
-  localStorage.setItem(LB_KEY, JSON.stringify(lb));
+
+async function lbSubmit(initials, score, dist) {
+  try {
+    await fetch(`${SB_URL}/rest/v1/scores`, {
+      method: 'POST',
+      headers: { ...SB_HDR, 'Prefer': 'return=minimal' },
+      body: JSON.stringify({ initials: initials.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3) || '???', score: Math.floor(score), dist: parseFloat(dist.toFixed(1)) })
+    });
+  } catch (e) { console.warn('Leaderboard submit failed', e); }
 }
-function lbQualifies(score) {
-  const lb = lbGet();
-  return lb.length < LB_SIZE || score > lb[lb.length - 1].score;
-}
-function lbAdd(initials, score, dist) {
-  const lb = lbGet();
-  const entry = { initials: initials.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3) || '???', score: Math.floor(score), dist: parseFloat(dist.toFixed(1)) };
-  lb.push(entry);
-  lb.sort((a, b) => b.score - a.score);
-  lb.splice(LB_SIZE);
-  lbSave(lb);
-  return lb;
-}
+
 function lbRender(lb, highlightScore) {
   const tbody = document.getElementById('lb-body');
   if (!lb.length) { document.getElementById('leaderboard').style.display = 'none'; return; }
@@ -1867,19 +1868,32 @@ function lbRender(lb, highlightScore) {
     </tr>`
   ).join('');
 }
-function lbPromptInitials(score, dist, onDone) {
+
+function lbPromptInitials(onDone) {
   const overlay = document.getElementById('initials-overlay');
   const input   = document.getElementById('initials-input');
   overlay.classList.remove('hidden');
   input.value = '';
   setTimeout(() => input.focus(), 80);
   const submit = () => {
-    const initials = input.value.trim() || '???';
     overlay.classList.add('hidden');
-    onDone(lbAdd(initials, score, dist));
+    onDone(input.value.trim() || '???');
   };
   document.getElementById('initials-btn').onclick = submit;
   input.onkeydown = e => { if (e.key === 'Enter') submit(); };
+}
+
+async function lbHandleGameOver(finalScore, finalDist) {
+  const lb = await lbFetch();
+  const qualifies = lb.length < LB_SIZE || finalScore > lb[lb.length - 1].score;
+  if (qualifies) {
+    lbPromptInitials(async initials => {
+      await lbSubmit(initials, finalScore, finalDist);
+      lbRender(await lbFetch(), Math.floor(finalScore));
+    });
+  } else {
+    lbRender(lb, -1);
+  }
 }
 
 // ─── HUD ──────────────────────────────────────────────────────────────────────
@@ -1920,7 +1934,7 @@ function showStart() {
   document.getElementById('start-prompt').style.opacity = '1';
   document.getElementById('laz-text').innerHTML =
     'Laz is standing trailside with an unlit cigarette.<br>' + lazReadyText();
-  lbRender(lbGet(), -1);
+  lbFetch().then(lb => lbRender(lb, -1));
   lazLit       = false;
   lazPreTimer  = -1;
   lazIntroTimer = 0;
@@ -1943,13 +1957,7 @@ function showGameOver() {
   document.getElementById('go-stats').style.display = 'block';
   document.getElementById('start-prompt').textContent = isTouchDevice() ? 'Tap to Run Again' : 'Press Any Key to Run Again';
 
-  if (lbQualifies(score)) {
-    lbPromptInitials(score, distance, lb => {
-      lbRender(lb, Math.floor(score));
-    });
-  } else {
-    lbRender(lbGet(), -1);
-  }
+  lbHandleGameOver(score, distance);
 }
 
 // ─── Fork tick ────────────────────────────────────────────────────────────────
