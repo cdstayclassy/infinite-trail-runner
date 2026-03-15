@@ -1127,7 +1127,7 @@ const anyKey    = () => Object.values(jp).some(Boolean);
 const clearJP   = () => { for (const k in jp) jp[k] = false; };
 
 // Touch state
-let tx = 0, ty = 0, touchFingerX = window.innerWidth / 2, isTouching = false, forkSwipeFired = false;
+let tx = 0, ty = 0, touchFingerX = window.innerWidth / 2, isTouching = false, forkSwipeFired = false, touchStartTime = 0;
 
 addEventListener('touchstart', e => {
   e.preventDefault();
@@ -1136,6 +1136,7 @@ addEventListener('touchstart', e => {
   touchFingerX = tx;
   isTouching = true;
   forkSwipeFired = false;
+  touchStartTime = performance.now();
 }, { passive: false });
 
 addEventListener('touchmove', e => {
@@ -1166,8 +1167,8 @@ addEventListener('touchend', e => {
     if (ady > adx && ady > 30) {
       // Vertical swipe → jump or duck
       jp[dy < 0 ? 'ArrowUp' : 'ArrowDown'] = true;
-    } else if (adx < 15 && ady < 15) {
-      // Tap → jump / start
+    } else if (adx < 15 && ady < 15 && performance.now() - touchStartTime < 180) {
+      // Quick tap → jump / start (held touches are steering, not taps)
       jp['Space'] = true;
     }
   }
