@@ -58,6 +58,25 @@
   #pause-overlay .pause-title { font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: #ff7820; text-shadow: 0 0 30px rgba(255,120,32,.8); letter-spacing: 6px; }
   #pause-overlay .pause-sub { margin-top: 12px; font-size: 13px; letter-spacing: 3px; color: rgba(255,255,255,.5); text-transform: uppercase; }
   #laz-countdown { position: absolute; top: 42%; left: 50%; transform: translate(-50%,-50%); font-family: 'Bebas Neue', sans-serif; font-size: 120px; color: #fff; text-shadow: 0 0 40px rgba(255,255,255,.9); pointer-events: none; opacity: 0; transition: opacity .4s; letter-spacing: 4px; }
+  /* Leaderboard */
+  #leaderboard { margin-top: 18px; width: 100%; max-width: 340px; }
+  #leaderboard table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  #leaderboard th { color: rgba(255,255,255,.4); letter-spacing: 2px; font-size: 10px; text-transform: uppercase; padding: 0 6px 6px; text-align: left; }
+  #leaderboard th:last-child { text-align: right; }
+  #leaderboard td { padding: 5px 6px; color: rgba(255,255,255,.75); border-top: 1px solid rgba(255,255,255,.06); }
+  #leaderboard td:last-child { text-align: right; color: #ff7820; font-family: 'Bebas Neue', sans-serif; font-size: 16px; }
+  #leaderboard tr.highlight td { color: #fff; background: rgba(255,120,32,.12); }
+  #leaderboard tr.highlight td:last-child { color: #ff7820; }
+  #leaderboard .lb-rank { color: rgba(255,255,255,.3); width: 22px; }
+  #leaderboard .lb-init { font-family: 'Bebas Neue', sans-serif; font-size: 17px; letter-spacing: 2px; color: #80e880; }
+  /* Initials entry overlay */
+  #initials-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column; background: rgba(0,0,0,.88); z-index: 10; pointer-events: auto; }
+  #initials-overlay.hidden { display: none; }
+  #initials-title { font-family: 'Bebas Neue', sans-serif; font-size: 42px; color: #ff7820; text-shadow: 0 0 30px rgba(255,120,32,.8); letter-spacing: 4px; }
+  #initials-sub { margin-top: 8px; font-size: 12px; letter-spacing: 3px; color: rgba(255,255,255,.5); text-transform: uppercase; }
+  #initials-input { margin-top: 24px; font-family: 'Bebas Neue', sans-serif; font-size: 56px; letter-spacing: 12px; color: #fff; background: transparent; border: none; border-bottom: 3px solid #ff7820; width: 160px; text-align: center; outline: none; text-transform: uppercase; caret-color: #ff7820; }
+  #initials-btn { margin-top: 28px; font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 4px; color: #0a0f0a; background: #ff7820; border: none; padding: 10px 32px; cursor: pointer; border-radius: 2px; }
+  #initials-btn:active { background: #e06010; }
 </style>
 </head>
 <body>
@@ -117,7 +136,19 @@
       <div class="st">Miles <span id="go-dist">0</span>mi</div>
       <div class="st">Best <span id="go-best">0</span></div>
     </div>
+    <div id="leaderboard" style="display:none;">
+      <table>
+        <thead><tr><th>#</th><th>Name</th><th>Mi</th><th>Score</th></tr></thead>
+        <tbody id="lb-body"></tbody>
+      </table>
+    </div>
     <div id="start-prompt">Press Any Key to Run</div>
+  </div>
+  <div id="initials-overlay" class="hidden">
+    <div id="initials-title">NEW HIGH SCORE!</div>
+    <div id="initials-sub">Enter your initials</div>
+    <input id="initials-input" type="text" maxlength="3" placeholder="AAA" autocomplete="off" autocorrect="off" spellcheck="false">
+    <button id="initials-btn">SUBMIT</button>
   </div>
 </div>
 
@@ -1800,6 +1831,57 @@ function damage(msg) {
   }
 }
 
+// ─── Leaderboard ──────────────────────────────────────────────────────────────
+const LB_KEY  = 'trailblaze_lb';
+const LB_SIZE = 10;
+
+function lbGet() {
+  try { return JSON.parse(localStorage.getItem(LB_KEY) || '[]'); } catch { return []; }
+}
+function lbSave(lb) {
+  localStorage.setItem(LB_KEY, JSON.stringify(lb));
+}
+function lbQualifies(score) {
+  const lb = lbGet();
+  return lb.length < LB_SIZE || score > lb[lb.length - 1].score;
+}
+function lbAdd(initials, score, dist) {
+  const lb = lbGet();
+  const entry = { initials: initials.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3) || '???', score: Math.floor(score), dist: parseFloat(dist.toFixed(1)) };
+  lb.push(entry);
+  lb.sort((a, b) => b.score - a.score);
+  lb.splice(LB_SIZE);
+  lbSave(lb);
+  return lb;
+}
+function lbRender(lb, highlightScore) {
+  const tbody = document.getElementById('lb-body');
+  if (!lb.length) { document.getElementById('leaderboard').style.display = 'none'; return; }
+  document.getElementById('leaderboard').style.display = '';
+  tbody.innerHTML = lb.map((e, i) =>
+    `<tr class="${e.score === highlightScore ? 'highlight' : ''}">
+      <td class="lb-rank">${i + 1}</td>
+      <td class="lb-init">${e.initials}</td>
+      <td>${e.dist}mi</td>
+      <td>${e.score.toLocaleString()}</td>
+    </tr>`
+  ).join('');
+}
+function lbPromptInitials(score, dist, onDone) {
+  const overlay = document.getElementById('initials-overlay');
+  const input   = document.getElementById('initials-input');
+  overlay.classList.remove('hidden');
+  input.value = '';
+  setTimeout(() => input.focus(), 80);
+  const submit = () => {
+    const initials = input.value.trim() || '???';
+    overlay.classList.add('hidden');
+    onDone(lbAdd(initials, score, dist));
+  };
+  document.getElementById('initials-btn').onclick = submit;
+  input.onkeydown = e => { if (e.key === 'Enter') submit(); };
+}
+
 // ─── HUD ──────────────────────────────────────────────────────────────────────
 let flashTO = null;
 function flash(lbl) {
@@ -1838,6 +1920,7 @@ function showStart() {
   document.getElementById('start-prompt').style.opacity = '1';
   document.getElementById('laz-text').innerHTML =
     'Laz is standing trailside with an unlit cigarette.<br>' + lazReadyText();
+  lbRender(lbGet(), -1);
   lazLit       = false;
   lazPreTimer  = -1;
   lazIntroTimer = 0;
@@ -1859,6 +1942,14 @@ function showGameOver() {
   document.getElementById('go-best').textContent  = Math.floor(hiScore);
   document.getElementById('go-stats').style.display = 'block';
   document.getElementById('start-prompt').textContent = isTouchDevice() ? 'Tap to Run Again' : 'Press Any Key to Run Again';
+
+  if (lbQualifies(score)) {
+    lbPromptInitials(score, distance, lb => {
+      lbRender(lb, Math.floor(score));
+    });
+  } else {
+    lbRender(lbGet(), -1);
+  }
 }
 
 // ─── Fork tick ────────────────────────────────────────────────────────────────
