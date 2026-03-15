@@ -104,8 +104,8 @@
       <span class="k">Beer</span><span class="d">Restores 1 life</span>
     </div>
     <div id="ctrl-touch" style="margin-top:18px; display:none;">
-      <span class="k">Drag &#8592;&#8594;</span><span class="d">Steer left / right</span>
-      <span class="k">Swipe &#8592;&#8594;</span><span class="d">Turn at a T or fork</span>
+      <span class="k">Hold Left / Right</span><span class="d">Steer left / right</span>
+      <span class="k">Swipe to Edge</span><span class="d">Turn at a T or fork</span>
       <span class="k">Swipe Up</span><span class="d">Jump</span>
       <span class="k">Swipe Down</span><span class="d">Duck under branches</span>
       <span class="k">Beer</span><span class="d">Restores 1 life</span>
@@ -1124,58 +1124,51 @@ const forkRight = () => eat('KeyD');
 const anyKey    = () => Object.values(jp).some(Boolean);
 const clearJP   = () => { for (const k in jp) jp[k] = false; };
 
-let tx = 0, ty = 0, touchStartTime = 0, touchDragX = 0, swipeFired = false, touchStartPlayerX = 0, isTouching = false;
-const TOUCH_SWIPE_PX  = 70;  // px to immediately trigger a fork/turn swipe
-const TOUCH_SWIPE_MS  = 300; // max ms window for a swipe
+// Touch state
+let tx = 0, ty = 0, touchFingerX = window.innerWidth / 2, isTouching = false, forkSwipeFired = false;
 
 addEventListener('touchstart', e => {
   tx = e.touches[0].clientX;
   ty = e.touches[0].clientY;
-  touchStartTime = performance.now();
-  touchDragX = 0;
-  swipeFired = false;
-  touchStartPlayerX = player.x;
+  touchFingerX = tx;
   isTouching = true;
+  forkSwipeFired = false;
 }, { passive: true });
 
 addEventListener('touchmove', e => {
-  const cx = e.touches[0].clientX;
-  const cy = e.touches[0].clientY;
-  const dx = cx - tx, dy = cy - ty;
-  touchDragX = dx;
+  touchFingerX = e.touches[0].clientX;
 
-  // Fire fork/turn swipe immediately once threshold is crossed — no waiting for touchend
-  if (!swipeFired && performance.now() - touchStartTime < TOUCH_SWIPE_MS
-      && Math.abs(dx) > TOUCH_SWIPE_PX && Math.abs(dx) > Math.abs(dy) * 1.5) {
-    jp[dx > 0 ? 'KeyD' : 'KeyA'] = true;
-    swipeFired = true;
-    // Update reference so steering re-engages from current position after swipe
-    touchStartPlayerX = player.x;
-    touchDragX = 0;
-    tx = e.touches[0].clientX;
+  // Fork turn: finger dragged all the way to the screen edge
+  if (!forkSwipeFired) {
+    const edgeMargin = 22; // px from screen edge counts as "off screen"
+    if (touchFingerX <= edgeMargin) {
+      jp['KeyA'] = true;
+      forkSwipeFired = true;
+    } else if (touchFingerX >= window.innerWidth - edgeMargin) {
+      jp['KeyD'] = true;
+      forkSwipeFired = true;
+    }
   }
 }, { passive: true });
 
 addEventListener('touchend', e => {
-  if (suppressNextTap) { suppressNextTap = false; touchDragX = 0; swipeFired = false; return; }
+  if (suppressNextTap) { suppressNextTap = false; isTouching = false; return; }
 
-  const cx = e.changedTouches[0].clientX;
-  const cy = e.changedTouches[0].clientY;
-  const dx = cx - tx, dy = cy - ty;
+  const dx = e.changedTouches[0].clientX - tx;
+  const dy = e.changedTouches[0].clientY - ty;
   const adx = Math.abs(dx), ady = Math.abs(dy);
 
-  if (!swipeFired) {
+  if (!forkSwipeFired) {
     if (ady > adx && ady > 30) {
       // Vertical swipe → jump or duck
       jp[dy < 0 ? 'ArrowUp' : 'ArrowDown'] = true;
-    } else if (adx < 20 && ady < 20) {
+    } else if (adx < 15 && ady < 15) {
       // Tap → jump / start
       jp['Space'] = true;
     }
   }
-  touchDragX = 0;
-  swipeFired = false;
   isTouching = false;
+  forkSwipeFired = false;
 }, { passive: true });
 
 // ─── Object builders ──────────────────────────────────────────────────────────
@@ -1542,17 +1535,13 @@ function tickPhysics(dt) {
   // Dynamic wall limit tracks current trail width
   const wallEdge = trailHalfW - 0.15;
 
-  // Touch drag: while finger is on screen, map offset directly to world X — no dead zone, no smoothing
-  if (isTouching) {
-    const scale = (wallEdge * 2) / (window.innerWidth * 0.90);
-    player.x = Math.max(-wallEdge, Math.min(wallEdge, touchStartPlayerX + touchDragX * scale));
-    player.xVel = 0;
-  } else {
-    if (leftHeld())  player.xVel -= player.STEER * dt;
-    if (rightHeld()) player.xVel += player.STEER * dt;
-    player.xVel -= player.xVel * player.FRIC * dt;
-    player.x += player.xVel * dt;
-  }
+  // Zone-based touch steering: left half of screen = steer left, right half = steer right
+  const touchLeft  = isTouching && touchFingerX < window.innerWidth * 0.45;
+  const touchRight = isTouching && touchFingerX > window.innerWidth * 0.55;
+  if (leftHeld()  || touchLeft)  player.xVel -= player.STEER * dt;
+  if (rightHeld() || touchRight) player.xVel += player.STEER * dt;
+  player.xVel -= player.xVel * player.FRIC * dt;
+  player.x += player.xVel * dt;
   if (player.x > wallEdge) {
     player.x = wallEdge;
     if (player.xVel > 0.5) {
@@ -1871,7 +1860,7 @@ function forkIndicatorEl() { return document.getElementById('fork-indicator'); }
 
 function showForkHUD() {
   const el = forkIndicatorEl();
-  el.textContent = isTouchDevice() ? '← SWIPE   TURN   SWIPE →' : '← A   TURN   D →';
+  el.textContent = isTouchDevice() ? '← EDGE   TURN   EDGE →' : '← A   TURN   D →';
   el.className = 'tee';
   el.style.opacity = '1';
 }
