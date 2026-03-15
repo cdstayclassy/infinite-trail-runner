@@ -2233,7 +2233,7 @@ function loop(ts) {
   }
 
   if (state === STATE.GAMEOVER) {
-    if (anyKey() && initialsOverlay().classList.contains('hidden')) { clearJP(); reset(); showStart(); }
+    if (anyKey() && initialsOverlay().classList.contains('hidden')) { clearJP(); reset(); state = STATE.START; showStart(); }
     placeSegs(0);
     placeForest(0);
     tickCamera(dt);
