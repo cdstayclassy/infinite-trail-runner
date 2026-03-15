@@ -147,7 +147,8 @@
   <div id="initials-overlay" class="hidden">
     <div id="initials-title">NEW HIGH SCORE!</div>
     <div id="initials-sub">Enter your initials</div>
-    <input id="initials-input" type="text" maxlength="3" placeholder="AAA" autocomplete="off" autocorrect="off" spellcheck="false">
+    <div id="initials-sub2" style="margin-top:6px; font-size:11px; letter-spacing:2px; color:rgba(255,120,32,.6); text-transform:uppercase;">Tap field to type</div>
+    <input id="initials-input" type="text" maxlength="3" placeholder="AAA" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" inputmode="text">
     <button id="initials-btn">SUBMIT</button>
   </div>
 </div>
@@ -1586,8 +1587,9 @@ function tickPhysics(dt) {
   const wallEdge = trailHalfW - 0.15;
 
   // Zone-based touch steering: left half of screen = steer left, right half = steer right
-  const touchLeft  = isTouching && touchFingerX < window.innerWidth * 0.45;
-  const touchRight = isTouching && touchFingerX > window.innerWidth * 0.55;
+  const gameActive = state === STATE.PLAYING && !paused;
+  const touchLeft  = isTouching && gameActive && touchFingerX < window.innerWidth * 0.45;
+  const touchRight = isTouching && gameActive && touchFingerX > window.innerWidth * 0.55;
   if (leftHeld()  || touchLeft)  player.xVel -= player.STEER * dt;
   if (rightHeld() || touchRight) player.xVel += player.STEER * dt;
   player.xVel -= player.xVel * player.FRIC * dt;
@@ -1881,7 +1883,7 @@ function lbPromptInitials(onDone) {
   const input   = document.getElementById('initials-input');
   overlay.classList.remove('hidden');
   input.value = '';
-  setTimeout(() => input.focus(), 80);
+  // iOS won't open keyboard from async context — user taps the field to type
   const submit = () => {
     overlay.classList.add('hidden');
     onDone(input.value.trim() || '???');
@@ -2231,7 +2233,7 @@ function loop(ts) {
   }
 
   if (state === STATE.GAMEOVER) {
-    if (anyKey()) { clearJP(); reset(); showStart(); }
+    if (anyKey() && initialsOverlay().classList.contains('hidden')) { clearJP(); reset(); showStart(); }
     placeSegs(0);
     placeForest(0);
     tickCamera(dt);
